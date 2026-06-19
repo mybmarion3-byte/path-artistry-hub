@@ -9,8 +9,56 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReservationsRouteImport } from './routes/reservations'
+import { Route as ParametresRouteImport } from './routes/parametres'
+import { Route as PaiementsRouteImport } from './routes/paiements'
+import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as FavorisRouteImport } from './routes/favoris'
+import { Route as CalendrierRouteImport } from './routes/calendrier'
+import { Route as AvisRouteImport } from './routes/avis'
+import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ReservationsRoute = ReservationsRouteImport.update({
+  id: '/reservations',
+  path: '/reservations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParametresRoute = ParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaiementsRoute = PaiementsRouteImport.update({
+  id: '/paiements',
+  path: '/paiements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FavorisRoute = FavorisRouteImport.update({
+  id: '/favoris',
+  path: '/favoris',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendrierRoute = CalendrierRouteImport.update({
+  id: '/calendrier',
+  path: '/calendrier',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvisRoute = AvisRouteImport.update({
+  id: '/avis',
+  path: '/avis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysesRoute = AnalysesRouteImport.update({
+  id: '/analyses',
+  path: '/analyses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +67,144 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analyses': typeof AnalysesRoute
+  '/avis': typeof AvisRoute
+  '/calendrier': typeof CalendrierRoute
+  '/favoris': typeof FavorisRoute
+  '/messages': typeof MessagesRoute
+  '/paiements': typeof PaiementsRoute
+  '/parametres': typeof ParametresRoute
+  '/reservations': typeof ReservationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analyses': typeof AnalysesRoute
+  '/avis': typeof AvisRoute
+  '/calendrier': typeof CalendrierRoute
+  '/favoris': typeof FavorisRoute
+  '/messages': typeof MessagesRoute
+  '/paiements': typeof PaiementsRoute
+  '/parametres': typeof ParametresRoute
+  '/reservations': typeof ReservationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analyses': typeof AnalysesRoute
+  '/avis': typeof AvisRoute
+  '/calendrier': typeof CalendrierRoute
+  '/favoris': typeof FavorisRoute
+  '/messages': typeof MessagesRoute
+  '/paiements': typeof PaiementsRoute
+  '/parametres': typeof ParametresRoute
+  '/reservations': typeof ReservationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/analyses'
+    | '/avis'
+    | '/calendrier'
+    | '/favoris'
+    | '/messages'
+    | '/paiements'
+    | '/parametres'
+    | '/reservations'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/analyses'
+    | '/avis'
+    | '/calendrier'
+    | '/favoris'
+    | '/messages'
+    | '/paiements'
+    | '/parametres'
+    | '/reservations'
+  id:
+    | '__root__'
+    | '/'
+    | '/analyses'
+    | '/avis'
+    | '/calendrier'
+    | '/favoris'
+    | '/messages'
+    | '/paiements'
+    | '/parametres'
+    | '/reservations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysesRoute: typeof AnalysesRoute
+  AvisRoute: typeof AvisRoute
+  CalendrierRoute: typeof CalendrierRoute
+  FavorisRoute: typeof FavorisRoute
+  MessagesRoute: typeof MessagesRoute
+  PaiementsRoute: typeof PaiementsRoute
+  ParametresRoute: typeof ParametresRoute
+  ReservationsRoute: typeof ReservationsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reservations': {
+      id: '/reservations'
+      path: '/reservations'
+      fullPath: '/reservations'
+      preLoaderRoute: typeof ReservationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametres': {
+      id: '/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof ParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/paiements': {
+      id: '/paiements'
+      path: '/paiements'
+      fullPath: '/paiements'
+      preLoaderRoute: typeof PaiementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favoris': {
+      id: '/favoris'
+      path: '/favoris'
+      fullPath: '/favoris'
+      preLoaderRoute: typeof FavorisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendrier': {
+      id: '/calendrier'
+      path: '/calendrier'
+      fullPath: '/calendrier'
+      preLoaderRoute: typeof CalendrierRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avis': {
+      id: '/avis'
+      path: '/avis'
+      fullPath: '/avis'
+      preLoaderRoute: typeof AvisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analyses': {
+      id: '/analyses'
+      path: '/analyses'
+      fullPath: '/analyses'
+      preLoaderRoute: typeof AnalysesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +217,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysesRoute: AnalysesRoute,
+  AvisRoute: AvisRoute,
+  CalendrierRoute: CalendrierRoute,
+  FavorisRoute: FavorisRoute,
+  MessagesRoute: MessagesRoute,
+  PaiementsRoute: PaiementsRoute,
+  ParametresRoute: ParametresRoute,
+  ReservationsRoute: ReservationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
