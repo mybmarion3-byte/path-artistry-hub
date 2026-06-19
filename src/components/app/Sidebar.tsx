@@ -14,7 +14,14 @@ import {
 } from "lucide-react";
 import { useBooker } from "@/lib/booker-store";
 
-const nav = [
+type NavItem = {
+  to: "/" | "/reservations" | "/messages" | "/favoris" | "/paiements" | "/avis" | "/calendrier" | "/analyses" | "/parametres";
+  label: string;
+  icon: typeof Home;
+  badge?: string;
+};
+
+const nav: NavItem[] = [
   { to: "/", label: "Accueil", icon: Home },
   { to: "/reservations", label: "Réservations", icon: CalendarCheck },
   { to: "/messages", label: "Messages", icon: MessageSquare },
@@ -24,7 +31,7 @@ const nav = [
   { to: "/calendrier", label: "Calendrier", icon: Calendar },
   { to: "/analyses", label: "Analyses", icon: BarChart3, badge: "NOUVEAU" },
   { to: "/parametres", label: "Paramètres", icon: Settings },
-] as const;
+];
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
