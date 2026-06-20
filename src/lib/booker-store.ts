@@ -292,6 +292,7 @@ type State = {
   addBooking: (b: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
   cancelBooking: (id: string) => void;
   sendMessage: (proId: string, text: string) => void;
+  sendProMessage: (clientId: string, text: string) => void;
   addReview: (r: Omit<Review, "id" | "at">) => void;
   setView: (v: "map" | "list" | "ai") => void;
   setFilters: (f: Partial<State["filters"]>) => void;
