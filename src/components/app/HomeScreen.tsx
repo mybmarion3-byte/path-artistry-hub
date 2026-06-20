@@ -253,7 +253,7 @@ function ProListColumn(props: {
                   </div>
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
