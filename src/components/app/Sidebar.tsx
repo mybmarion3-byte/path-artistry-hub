@@ -7,7 +7,7 @@ import {
 import { useBooker } from "@/lib/booker-store";
 
 type ClientPath = "/" | "/reservations" | "/messages" | "/favoris" | "/paiements" | "/avis" | "/calendrier" | "/analyses" | "/parametres";
-type ProPath = "/pro" | "/pro/demandes" | "/pro/agenda" | "/pro/clients" | "/pro/prestations" | "/pro/revenus" | "/messages" | "/parametres";
+type ProPath = "/pro" | "/pro/demandes" | "/pro/agenda" | "/pro/clients" | "/pro/prestations" | "/pro/revenus" | "/pro/messages" | "/pro/parametres";
 
 const clientNav: { to: ClientPath; label: string; icon: typeof Home; badge?: string }[] = [
   { to: "/", label: "Rechercher", icon: Home },
@@ -28,8 +28,8 @@ const proNav: { to: ProPath; label: string; icon: typeof Home; badge?: string | 
   { to: "/pro/clients", label: "Mes clients", icon: Users },
   { to: "/pro/prestations", label: "Mes prestations", icon: Scissors },
   { to: "/pro/revenus", label: "Revenus", icon: Wallet },
-  { to: "/messages", label: "Messages", icon: MessageSquare },
-  { to: "/parametres", label: "Paramètres", icon: Settings },
+  { to: "/pro/messages", label: "Messages clients", icon: MessageSquare },
+  { to: "/pro/parametres", label: "Paramètres", icon: Settings },
 ];
 
 export function Sidebar() {
