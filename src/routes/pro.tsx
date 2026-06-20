@@ -183,27 +183,26 @@ function ProDashboard() {
               <Link to="/pro/agenda" className="text-xs font-semibold text-emerald-600 hover:underline">Semaine</Link>
             </div>
             <div className="space-y-2">
-              {TODAY_AGENDA.map((a, i) => (
+              {todayWithStatus.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-8">Aucun RDV aujourd'hui.</div>
+              )}
+              {todayWithStatus.map((a) => (
                 <div
-                  key={i}
+                  key={a.id}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition ${
                     a.status === "next"
                       ? "border-emerald-500 bg-emerald-50/60"
                       : a.status === "done"
                       ? "border-border opacity-60"
-                      : a.status === "break"
-                      ? "border-dashed border-border bg-secondary/30"
                       : "border-border"
                   }`}
                 >
-                  <div className="w-14 text-sm font-semibold tabular-nums">{a.time}</div>
+                  <div className="w-14 text-sm font-semibold tabular-nums">{fmtHour(a.hour)}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{a.client}</div>
-                    {a.service && (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {a.service} · {a.duration} min{a.location ? ` · ${a.location}` : ""}
-                      </div>
-                    )}
+                    <div className="text-sm font-medium truncate">{a.clientName}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {a.serviceName} · {Math.round(a.dur * 60)} min
+                    </div>
                   </div>
                   {a.price > 0 && <div className="text-sm font-semibold">{a.price} €</div>}
                   {a.status === "next" && (
