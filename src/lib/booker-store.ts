@@ -5,6 +5,15 @@ import julieImg from "@/assets/pro-julie.jpg";
 import nicolasImg from "@/assets/pro-nicolas.jpg";
 import lauraImg from "@/assets/pro-laura.jpg";
 
+export type Service = {
+  id: string;
+  name: string;
+  duration: number; // minutes
+  price: number; // €
+};
+
+export type Mode = "home" | "studio" | "video";
+
 export type Pro = {
   id: string;
   name: string;
@@ -14,15 +23,17 @@ export type Pro = {
   reviews: number;
   distanceKm: number;
   availability: string; // "now" | "HH:MM"
-  price: number;
+  price: number; // starting price (mirror of cheapest service)
   bio: string;
   verified: boolean;
   atHome: boolean;
   specialty: string;
-  // map position (percentage relative to map container)
+  experience: number; // years
   x: number;
   y: number;
   category: string;
+  services: Service[];
+  modes: Mode[];
 };
 
 export const PROS: Pro[] = [
@@ -35,14 +46,22 @@ export const PROS: Pro[] = [
     reviews: 127,
     distanceKm: 0.8,
     availability: "now",
-    price: 45,
+    price: 35,
     bio: "Plus de 8 ans d'expérience. Je me déplace chez vous avec tout le matériel nécessaire.",
     verified: true,
     atHome: true,
     specialty: "Spécialiste couleur & balayage",
+    experience: 8,
     x: 52,
     y: 48,
     category: "Coiffure",
+    services: [
+      { id: "brushing", name: "Brushing", duration: 45, price: 35 },
+      { id: "coupe", name: "Coupe + brushing", duration: 60, price: 55 },
+      { id: "couleur", name: "Couleur", duration: 90, price: 80 },
+      { id: "balayage", name: "Balayage", duration: 120, price: 120 },
+    ],
+    modes: ["home"],
   },
   {
     id: "thomas",
@@ -58,9 +77,16 @@ export const PROS: Pro[] = [
     verified: true,
     atHome: true,
     specialty: "Préparation physique & remise en forme",
+    experience: 6,
     x: 82,
     y: 22,
     category: "Sport",
+    services: [
+      { id: "seance", name: "Séance individuelle", duration: 60, price: 60 },
+      { id: "duo", name: "Séance duo", duration: 60, price: 90 },
+      { id: "programme", name: "Programme + suivi", duration: 90, price: 110 },
+    ],
+    modes: ["home", "video"],
   },
   {
     id: "julie",
@@ -71,14 +97,21 @@ export const PROS: Pro[] = [
     reviews: 63,
     distanceKm: 1.4,
     availability: "15:00",
-    price: 55,
+    price: 35,
     bio: "Soins du visage, épilation, manucure. Tout pour vous chouchouter.",
     verified: true,
     atHome: true,
     specialty: "Soins visage & manucure",
+    experience: 5,
     x: 78,
     y: 62,
     category: "Beauté",
+    services: [
+      { id: "manucure", name: "Manucure", duration: 45, price: 35 },
+      { id: "soin-visage", name: "Soin du visage", duration: 60, price: 55 },
+      { id: "epil", name: "Épilation jambes", duration: 45, price: 40 },
+    ],
+    modes: ["home"],
   },
   {
     id: "nicolas",
@@ -94,9 +127,16 @@ export const PROS: Pro[] = [
     verified: true,
     atHome: true,
     specialty: "Massage suédois & californien",
+    experience: 10,
     x: 35,
     y: 26,
     category: "Bien-être",
+    services: [
+      { id: "suedois", name: "Massage suédois", duration: 60, price: 70 },
+      { id: "californien", name: "Massage californien", duration: 75, price: 85 },
+      { id: "pierres", name: "Pierres chaudes", duration: 90, price: 100 },
+    ],
+    modes: ["home", "studio"],
   },
   {
     id: "laura",
@@ -112,17 +152,27 @@ export const PROS: Pro[] = [
     verified: true,
     atHome: true,
     specialty: "Maquillage événementiel",
+    experience: 7,
     x: 25,
     y: 70,
     category: "Beauté",
+    services: [
+      { id: "jour", name: "Maquillage jour", duration: 45, price: 65 },
+      { id: "soiree", name: "Maquillage soirée", duration: 60, price: 85 },
+      { id: "mariee", name: "Maquillage mariée", duration: 90, price: 150 },
+    ],
+    modes: ["home", "studio"],
   },
 ];
 
 export type Booking = {
   id: string;
   proId: string;
-  date: string; // ISO date
-  time: string; // HH:MM
+  serviceId?: string;
+  serviceName?: string;
+  mode?: Mode;
+  date: string;
+  time: string;
   price: number;
   status: "upcoming" | "completed" | "cancelled";
   createdAt: number;
@@ -144,6 +194,22 @@ export type Review = {
   at: number;
 };
 
+export type InstantRequest = {
+  id: string;
+  category: string;
+  serviceName: string;
+  location: string;
+  when: string;
+  budget: number;
+  comment: string;
+  status: "pending" | "matched" | "expired";
+  matchedProId?: string;
+  notifiedProIds: string[];
+  createdAt: number;
+};
+
+export type When = { kind: "now" } | { kind: "today" } | { kind: "date"; iso: string };
+
 type State = {
   selectedProId: string;
   favorites: string[];
@@ -151,8 +217,12 @@ type State = {
   messages: Message[];
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
+  requests: InstantRequest[];
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   view: "map" | "list" | "ai";
+  searchQuery: string;
+  location: string;
+  when: When;
   selectPro: (id: string) => void;
   toggleFavorite: (id: string) => void;
   addBooking: (b: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
@@ -163,7 +233,14 @@ type State = {
   setFilters: (f: Partial<State["filters"]>) => void;
   removeFilterCategory: (c: string) => void;
   clearFilters: () => void;
+  toggleFilterCategory: (c: string) => void;
   markAllNotificationsRead: () => void;
+  setSearchQuery: (q: string) => void;
+  setLocation: (l: string) => void;
+  setWhen: (w: When) => void;
+  createRequest: (r: Omit<InstantRequest, "id" | "createdAt" | "status" | "notifiedProIds">) => InstantRequest;
+  matchRequest: (id: string, proId: string) => void;
+  pushNotification: (n: { title: string; body: string }) => void;
 };
 
 export const useBooker = create<State>((set) => ({
@@ -180,8 +257,12 @@ export const useBooker = create<State>((set) => ({
     { id: "n2", title: "Nouveau message de Thomas", body: "Prêt pour votre séance ?", at: Date.now() - 7200_000, read: false },
     { id: "n3", title: "Promotion -20%", body: "Sur votre premier massage bien-être.", at: Date.now() - 86400_000, read: false },
   ],
-  filters: { categories: ["Coiffure"], atHome: true, maxKm: 5 },
+  requests: [],
+  filters: { categories: [], atHome: false, maxKm: 5 },
   view: "map",
+  searchQuery: "",
+  location: "Paris 17e",
+  when: { kind: "now" },
   selectPro: (id) => set({ selectedProId: id }),
   toggleFavorite: (id) =>
     set((s) => ({
@@ -220,11 +301,49 @@ export const useBooker = create<State>((set) => ({
     set((s) => ({
       filters: { ...s.filters, categories: s.filters.categories.filter((x) => x !== c) },
     })),
+  toggleFilterCategory: (c) =>
+    set((s) => ({
+      filters: {
+        ...s.filters,
+        categories: s.filters.categories.includes(c)
+          ? s.filters.categories.filter((x) => x !== c)
+          : [...s.filters.categories, c],
+      },
+    })),
   clearFilters: () => set({ filters: { categories: [], atHome: false, maxKm: 10 } }),
   markAllNotificationsRead: () =>
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
+  setSearchQuery: (q) => set({ searchQuery: q }),
+  setLocation: (l) => set({ location: l }),
+  setWhen: (w) => set({ when: w }),
+  createRequest: (r) => {
+    const req: InstantRequest = {
+      ...r,
+      id: `req_${Date.now()}`,
+      createdAt: Date.now(),
+      status: "pending",
+      notifiedProIds: [],
+    };
+    set((s) => ({ requests: [req, ...s.requests] }));
+    return req;
+  },
+  matchRequest: (id, proId) =>
+    set((s) => ({
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, status: "matched", matchedProId: proId } : r,
+      ),
+    })),
+  pushNotification: (n) =>
+    set((s) => ({
+      notifications: [
+        { id: `n_${Date.now()}`, title: n.title, body: n.body, at: Date.now(), read: false },
+        ...s.notifications,
+      ],
+    })),
 }));
 
 export function getPro(id: string): Pro {
   return PROS.find((p) => p.id === id) ?? PROS[0];
 }
+
+export const CATEGORIES = ["Coiffure", "Beauté", "Bien-être", "Sport"] as const;
