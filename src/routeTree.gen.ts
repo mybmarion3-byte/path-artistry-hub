@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReservationsRouteImport } from './routes/reservations'
+import { Route as ProRouteImport } from './routes/pro'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PaiementsRouteImport } from './routes/paiements'
 import { Route as MessagesRouteImport } from './routes/messages'
@@ -18,10 +19,20 @@ import { Route as CalendrierRouteImport } from './routes/calendrier'
 import { Route as AvisRouteImport } from './routes/avis'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProRevenusRouteImport } from './routes/pro.revenus'
+import { Route as ProPrestationsRouteImport } from './routes/pro.prestations'
+import { Route as ProDemandesRouteImport } from './routes/pro.demandes'
+import { Route as ProClientsRouteImport } from './routes/pro.clients'
+import { Route as ProAgendaRouteImport } from './routes/pro.agenda'
 
 const ReservationsRoute = ReservationsRouteImport.update({
   id: '/reservations',
   path: '/reservations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProRoute = ProRouteImport.update({
+  id: '/pro',
+  path: '/pro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParametresRoute = ParametresRouteImport.update({
@@ -64,6 +75,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProRevenusRoute = ProRevenusRouteImport.update({
+  id: '/revenus',
+  path: '/revenus',
+  getParentRoute: () => ProRoute,
+} as any)
+const ProPrestationsRoute = ProPrestationsRouteImport.update({
+  id: '/prestations',
+  path: '/prestations',
+  getParentRoute: () => ProRoute,
+} as any)
+const ProDemandesRoute = ProDemandesRouteImport.update({
+  id: '/demandes',
+  path: '/demandes',
+  getParentRoute: () => ProRoute,
+} as any)
+const ProClientsRoute = ProClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => ProRoute,
+} as any)
+const ProAgendaRoute = ProAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => ProRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,7 +110,13 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
+  '/pro': typeof ProRouteWithChildren
   '/reservations': typeof ReservationsRoute
+  '/pro/agenda': typeof ProAgendaRoute
+  '/pro/clients': typeof ProClientsRoute
+  '/pro/demandes': typeof ProDemandesRoute
+  '/pro/prestations': typeof ProPrestationsRoute
+  '/pro/revenus': typeof ProRevenusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,7 +127,13 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
+  '/pro': typeof ProRouteWithChildren
   '/reservations': typeof ReservationsRoute
+  '/pro/agenda': typeof ProAgendaRoute
+  '/pro/clients': typeof ProClientsRoute
+  '/pro/demandes': typeof ProDemandesRoute
+  '/pro/prestations': typeof ProPrestationsRoute
+  '/pro/revenus': typeof ProRevenusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,7 +145,13 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
+  '/pro': typeof ProRouteWithChildren
   '/reservations': typeof ReservationsRoute
+  '/pro/agenda': typeof ProAgendaRoute
+  '/pro/clients': typeof ProClientsRoute
+  '/pro/demandes': typeof ProDemandesRoute
+  '/pro/prestations': typeof ProPrestationsRoute
+  '/pro/revenus': typeof ProRevenusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -110,7 +164,13 @@ export interface FileRouteTypes {
     | '/messages'
     | '/paiements'
     | '/parametres'
+    | '/pro'
     | '/reservations'
+    | '/pro/agenda'
+    | '/pro/clients'
+    | '/pro/demandes'
+    | '/pro/prestations'
+    | '/pro/revenus'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -121,7 +181,13 @@ export interface FileRouteTypes {
     | '/messages'
     | '/paiements'
     | '/parametres'
+    | '/pro'
     | '/reservations'
+    | '/pro/agenda'
+    | '/pro/clients'
+    | '/pro/demandes'
+    | '/pro/prestations'
+    | '/pro/revenus'
   id:
     | '__root__'
     | '/'
@@ -132,7 +198,13 @@ export interface FileRouteTypes {
     | '/messages'
     | '/paiements'
     | '/parametres'
+    | '/pro'
     | '/reservations'
+    | '/pro/agenda'
+    | '/pro/clients'
+    | '/pro/demandes'
+    | '/pro/prestations'
+    | '/pro/revenus'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -144,6 +216,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   PaiementsRoute: typeof PaiementsRoute
   ParametresRoute: typeof ParametresRoute
+  ProRoute: typeof ProRouteWithChildren
   ReservationsRoute: typeof ReservationsRoute
 }
 
@@ -154,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/reservations'
       fullPath: '/reservations'
       preLoaderRoute: typeof ReservationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pro': {
+      id: '/pro'
+      path: '/pro'
+      fullPath: '/pro'
+      preLoaderRoute: typeof ProRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parametres': {
@@ -212,8 +292,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pro/revenus': {
+      id: '/pro/revenus'
+      path: '/revenus'
+      fullPath: '/pro/revenus'
+      preLoaderRoute: typeof ProRevenusRouteImport
+      parentRoute: typeof ProRoute
+    }
+    '/pro/prestations': {
+      id: '/pro/prestations'
+      path: '/prestations'
+      fullPath: '/pro/prestations'
+      preLoaderRoute: typeof ProPrestationsRouteImport
+      parentRoute: typeof ProRoute
+    }
+    '/pro/demandes': {
+      id: '/pro/demandes'
+      path: '/demandes'
+      fullPath: '/pro/demandes'
+      preLoaderRoute: typeof ProDemandesRouteImport
+      parentRoute: typeof ProRoute
+    }
+    '/pro/clients': {
+      id: '/pro/clients'
+      path: '/clients'
+      fullPath: '/pro/clients'
+      preLoaderRoute: typeof ProClientsRouteImport
+      parentRoute: typeof ProRoute
+    }
+    '/pro/agenda': {
+      id: '/pro/agenda'
+      path: '/agenda'
+      fullPath: '/pro/agenda'
+      preLoaderRoute: typeof ProAgendaRouteImport
+      parentRoute: typeof ProRoute
+    }
   }
 }
+
+interface ProRouteChildren {
+  ProAgendaRoute: typeof ProAgendaRoute
+  ProClientsRoute: typeof ProClientsRoute
+  ProDemandesRoute: typeof ProDemandesRoute
+  ProPrestationsRoute: typeof ProPrestationsRoute
+  ProRevenusRoute: typeof ProRevenusRoute
+}
+
+const ProRouteChildren: ProRouteChildren = {
+  ProAgendaRoute: ProAgendaRoute,
+  ProClientsRoute: ProClientsRoute,
+  ProDemandesRoute: ProDemandesRoute,
+  ProPrestationsRoute: ProPrestationsRoute,
+  ProRevenusRoute: ProRevenusRoute,
+}
+
+const ProRouteWithChildren = ProRoute._addFileChildren(ProRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -224,6 +357,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   PaiementsRoute: PaiementsRoute,
   ParametresRoute: ParametresRoute,
+  ProRoute: ProRouteWithChildren,
   ReservationsRoute: ReservationsRoute,
 }
 export const routeTree = rootRouteImport

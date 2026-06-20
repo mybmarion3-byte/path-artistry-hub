@@ -210,7 +210,24 @@ export type InstantRequest = {
 
 export type When = { kind: "now" } | { kind: "today" } | { kind: "date"; iso: string };
 
+export type Role = "client" | "pro";
+
+export type ProRequest = {
+  id: string;
+  clientName: string;
+  serviceName: string;
+  location: string;
+  distanceKm: number;
+  when: string;
+  price: number;
+  status: "pending" | "accepted" | "declined";
+  createdAt: number;
+};
+
 type State = {
+  role: Role;
+  proIdentityId: string; // which pro the user "is" when in pro mode
+  proVisible: boolean; // pro visibility toggle
   selectedProId: string;
   favorites: string[];
   bookings: Booking[];
@@ -218,11 +235,14 @@ type State = {
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
+  proInbox: ProRequest[]; // demandes entrantes côté pro
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   view: "map" | "list" | "ai";
   searchQuery: string;
   location: string;
   when: When;
+  setRole: (r: Role) => void;
+  setProVisible: (v: boolean) => void;
   selectPro: (id: string) => void;
   toggleFavorite: (id: string) => void;
   addBooking: (b: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
@@ -241,12 +261,22 @@ type State = {
   createRequest: (r: Omit<InstantRequest, "id" | "createdAt" | "status" | "notifiedProIds">) => InstantRequest;
   matchRequest: (id: string, proId: string) => void;
   pushNotification: (n: { title: string; body: string }) => void;
+  acceptProRequest: (id: string) => void;
+  declineProRequest: (id: string) => void;
 };
 
 export const useBooker = create<State>((set) => ({
+  role: "client",
+  proIdentityId: "camille",
+  proVisible: true,
   selectedProId: "camille",
   favorites: ["camille"],
   bookings: [],
+  proInbox: [
+    { id: "pr1", clientName: "Sophie L.", serviceName: "Brushing", location: "Paris 17e", distanceKm: 1.2, when: "Aujourd'hui 15h00", price: 45, status: "pending", createdAt: Date.now() - 300_000 },
+    { id: "pr2", clientName: "Léa M.", serviceName: "Couleur", location: "Levallois", distanceKm: 2.4, when: "Aujourd'hui 17h00", price: 85, status: "pending", createdAt: Date.now() - 600_000 },
+    { id: "pr3", clientName: "Inès B.", serviceName: "Coupe + brushing", location: "Clichy", distanceKm: 3.1, when: "Demain 10h00", price: 55, status: "pending", createdAt: Date.now() - 1200_000 },
+  ],
   messages: [
     { id: "m1", proId: "camille", text: "Bonjour Marion ! Hâte de vous coiffer 😊", from: "pro", at: Date.now() - 3600_000 },
     { id: "m2", proId: "thomas", text: "Prêt pour votre séance ?", from: "pro", at: Date.now() - 7200_000 },
@@ -339,6 +369,16 @@ export const useBooker = create<State>((set) => ({
         { id: `n_${Date.now()}`, title: n.title, body: n.body, at: Date.now(), read: false },
         ...s.notifications,
       ],
+    })),
+  setRole: (r) => set({ role: r }),
+  setProVisible: (v) => set({ proVisible: v }),
+  acceptProRequest: (id) =>
+    set((s) => ({
+      proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "accepted" } : r)),
+    })),
+  declineProRequest: (id) =>
+    set((s) => ({
+      proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "declined" } : r)),
     })),
 }));
 

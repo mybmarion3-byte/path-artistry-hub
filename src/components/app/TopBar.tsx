@@ -1,6 +1,7 @@
-import { Bell, Search, MapPin, ChevronDown, Clock } from "lucide-react";
+import { Bell, Search, MapPin, ChevronDown, Clock, Power, Inbox } from "lucide-react";
 import { useState } from "react";
-import { useBooker, type When } from "@/lib/booker-store";
+import { Link } from "@tanstack/react-router";
+import { useBooker, getPro, type When } from "@/lib/booker-store";
 import userMarion from "@/assets/user-marion.jpg";
 
 const WHEN_OPTIONS: { label: string; value: When }[] = [
@@ -9,6 +10,12 @@ const WHEN_OPTIONS: { label: string; value: When }[] = [
 ];
 
 export function TopBar() {
+  const role = useBooker((s) => s.role);
+  const proIdentityId = useBooker((s) => s.proIdentityId);
+  const proVisible = useBooker((s) => s.proVisible);
+  const setProVisible = useBooker((s) => s.setProVisible);
+  const inboxCount = useBooker((s) => s.proInbox.filter((r) => r.status === "pending").length);
+
   const searchQuery = useBooker((s) => s.searchQuery);
   const setSearchQuery = useBooker((s) => s.setSearchQuery);
   const location = useBooker((s) => s.location);
@@ -22,70 +29,109 @@ export function TopBar() {
   const [whenOpen, setWhenOpen] = useState(false);
   const unread = notifs.filter((n) => !n.read).length;
 
+  const isClient = role === "client";
+  const proIdentity = getPro(proIdentityId);
+
   const whenLabel =
     when.kind === "now" ? "Maintenant" : when.kind === "today" ? "Aujourd'hui" : when.iso;
 
   return (
-    <header className="h-20 px-8 flex items-center gap-3 border-b border-border bg-background sticky top-0 z-30">
-      <div className="flex-1 max-w-xl relative">
-        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Brushing, massage, coach... que cherchez-vous ?"
-          className="w-full h-12 pl-11 pr-4 rounded-full bg-secondary border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition"
-        />
-      </div>
-
-      {editLoc ? (
-        <input
-          autoFocus
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          onBlur={() => setEditLoc(false)}
-          onKeyDown={(e) => e.key === "Enter" && setEditLoc(false)}
-          className="h-12 px-4 rounded-full border border-primary bg-card text-sm w-44 outline-none"
-        />
-      ) : (
-        <button
-          onClick={() => setEditLoc(true)}
-          className="h-12 px-4 rounded-full border border-border bg-card flex items-center gap-2 text-sm font-medium hover:bg-secondary transition"
-        >
-          <MapPin className="w-4 h-4 text-primary" />
-          {location}
-        </button>
-      )}
-
-      <div className="relative">
-        <button
-          onClick={() => setWhenOpen((o) => !o)}
-          className="h-12 px-4 rounded-full border border-border bg-card flex items-center gap-2 text-sm font-medium hover:bg-secondary transition"
-        >
-          <Clock className="w-4 h-4 text-primary" />
-          {whenLabel}
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-        </button>
-        {whenOpen && (
-          <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-card overflow-hidden z-40">
-            {WHEN_OPTIONS.map((o) => (
-              <button
-                key={o.label}
-                onClick={() => { setWhen(o.value); setWhenOpen(false); }}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary"
-              >
-                {o.label}
-              </button>
-            ))}
-            <div className="border-t border-border p-2">
-              <input
-                type="date"
-                onChange={(e) => { if (e.target.value) { setWhen({ kind: "date", iso: e.target.value }); setWhenOpen(false); } }}
-                className="w-full h-9 px-2 rounded-lg bg-secondary text-sm outline-none"
-              />
-            </div>
+    <header className={`h-20 px-8 flex items-center gap-3 border-b sticky top-0 z-30 ${
+      isClient ? "bg-background border-border" : "bg-emerald-50/50 border-emerald-200/60"
+    }`}>
+      {isClient ? (
+        <>
+          <div className="flex-1 max-w-xl relative">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Brushing, massage, coach... que cherchez-vous ?"
+              className="w-full h-12 pl-11 pr-4 rounded-full bg-secondary border border-transparent focus:border-primary focus:bg-card outline-none text-sm transition"
+            />
           </div>
-        )}
-      </div>
+
+          {editLoc ? (
+            <input
+              autoFocus
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              onBlur={() => setEditLoc(false)}
+              onKeyDown={(e) => e.key === "Enter" && setEditLoc(false)}
+              className="h-12 px-4 rounded-full border border-primary bg-card text-sm w-44 outline-none"
+            />
+          ) : (
+            <button
+              onClick={() => setEditLoc(true)}
+              className="h-12 px-4 rounded-full border border-border bg-card flex items-center gap-2 text-sm font-medium hover:bg-secondary transition"
+            >
+              <MapPin className="w-4 h-4 text-primary" />
+              {location}
+            </button>
+          )}
+
+          <div className="relative">
+            <button
+              onClick={() => setWhenOpen((o) => !o)}
+              className="h-12 px-4 rounded-full border border-border bg-card flex items-center gap-2 text-sm font-medium hover:bg-secondary transition"
+            >
+              <Clock className="w-4 h-4 text-primary" />
+              {whenLabel}
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            {whenOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-card overflow-hidden z-40">
+                {WHEN_OPTIONS.map((o) => (
+                  <button
+                    key={o.label}
+                    onClick={() => { setWhen(o.value); setWhenOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary"
+                  >
+                    {o.label}
+                  </button>
+                ))}
+                <div className="border-t border-border p-2">
+                  <input
+                    type="date"
+                    onChange={(e) => { if (e.target.value) { setWhen({ kind: "date", iso: e.target.value }); setWhenOpen(false); } }}
+                    className="w-full h-9 px-2 rounded-lg bg-secondary text-sm outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* PRO bar */}
+          <div className="flex-1 flex items-center gap-3">
+            <button
+              onClick={() => setProVisible(!proVisible)}
+              className={`h-12 px-4 rounded-full border flex items-center gap-2 text-sm font-semibold transition ${
+                proVisible
+                  ? "bg-emerald-500 text-white border-emerald-500 shadow-glow"
+                  : "bg-card border-border text-muted-foreground"
+              }`}
+            >
+              <Power className="w-4 h-4" />
+              {proVisible ? "Disponible maintenant" : "Hors ligne"}
+            </button>
+            <div className="h-12 px-4 rounded-full border border-emerald-200 bg-white/70 flex items-center gap-2 text-sm">
+              <MapPin className="w-4 h-4 text-emerald-600" />
+              <span className="text-muted-foreground">Zone :</span>
+              <span className="font-medium">Paris 17e · 5 km</span>
+            </div>
+            <Link
+              to="/pro/demandes"
+              className="h-12 px-4 rounded-full border border-emerald-200 bg-white/70 flex items-center gap-2 text-sm hover:bg-white"
+            >
+              <Inbox className="w-4 h-4 text-emerald-600" />
+              <span className="font-medium">{inboxCount}</span>
+              <span className="text-muted-foreground">demandes</span>
+            </Link>
+          </div>
+        </>
+      )}
 
       <div className="relative">
         <button
@@ -119,14 +165,26 @@ export function TopBar() {
         )}
       </div>
 
-      <button className="flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-card border border-border hover:bg-secondary transition">
-        <img src={userMarion} alt="Marion" className="w-10 h-10 rounded-full object-cover" />
-        <div className="text-left leading-tight">
-          <div className="text-sm font-semibold">Marion</div>
-          <div className="text-[10px] font-semibold text-primary">CLIENTE</div>
-        </div>
-        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-      </button>
+      {/* Identity card — distinct per role */}
+      {isClient ? (
+        <button className="flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-card border border-border hover:bg-secondary transition">
+          <img src={userMarion} alt="Marion" className="w-10 h-10 rounded-full object-cover" />
+          <div className="text-left leading-tight">
+            <div className="text-sm font-semibold">Marion</div>
+            <div className="text-[10px] font-semibold text-primary">CLIENTE</div>
+          </div>
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        </button>
+      ) : (
+        <button className="flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-white border-2 border-emerald-500 hover:bg-emerald-50 transition shadow-sm">
+          <img src={proIdentity.avatar} alt={proIdentity.name} className="w-10 h-10 rounded-full object-cover" />
+          <div className="text-left leading-tight">
+            <div className="text-sm font-semibold">{proIdentity.name.split(" ")[0]}</div>
+            <div className="text-[10px] font-semibold text-emerald-600">PRO · {proIdentity.category.toUpperCase()}</div>
+          </div>
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        </button>
+      )}
     </header>
   );
 }
