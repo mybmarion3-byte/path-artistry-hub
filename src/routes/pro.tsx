@@ -89,7 +89,7 @@ function ProDashboard() {
               <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Espace pro</div>
               <h1 className="text-3xl font-semibold">Bonjour {pro.name.split(" ")[0]} 👋</h1>
               <div className="text-sm text-muted-foreground mt-0.5">
-                {TODAY_AGENDA.filter((a) => a.status !== "break").length} rendez-vous aujourd'hui · {dayTotal} € prévus
+                {today.length} rendez-vous aujourd'hui · {dayTotal} € prévus
               </div>
             </div>
           </div>
