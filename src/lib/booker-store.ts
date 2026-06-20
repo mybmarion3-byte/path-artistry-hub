@@ -338,6 +338,12 @@ export const useBooker = create<State>((set) => ({
     { id: "m1", proId: "camille", text: "Bonjour Marion ! Hâte de vous coiffer 😊", from: "pro", at: Date.now() - 3600_000 },
     { id: "m2", proId: "thomas", text: "Prêt pour votre séance ?", from: "pro", at: Date.now() - 7200_000 },
   ],
+  proMessages: [
+    { id: "pm1", clientId: "c1", text: "Bonjour Camille, on confirme samedi à 14h ?", from: "client", at: Date.now() - 1800_000 },
+    { id: "pm2", clientId: "c1", text: "Oui parfait, à samedi 👋", from: "me", at: Date.now() - 1700_000 },
+    { id: "pm3", clientId: "c2", text: "Merci pour le brushing, j'ai adoré !", from: "client", at: Date.now() - 86400_000 },
+    { id: "pm4", clientId: "c3", text: "Vous avez un créneau jeudi ?", from: "client", at: Date.now() - 600_000 },
+  ],
   reviews: [],
   notifications: [
     { id: "n1", title: "Camille a accepté votre demande", body: "Elle sera chez vous dans 12 min.", at: Date.now() - 600_000, read: false },
