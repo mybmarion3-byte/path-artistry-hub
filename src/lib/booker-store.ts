@@ -404,6 +404,13 @@ export const useBooker = create<State>((set) => ({
         { id: `msg_${Date.now()}`, proId, text, from: "me", at: Date.now() },
       ],
     })),
+  sendProMessage: (clientId, text) =>
+    set((s) => ({
+      proMessages: [
+        ...s.proMessages,
+        { id: `pmsg_${Date.now()}`, clientId, text, from: "me", at: Date.now() },
+      ],
+    })),
   addReview: (r) =>
     set((s) => ({
       reviews: [{ ...r, id: `rv_${Date.now()}`, at: Date.now() }, ...s.reviews],
