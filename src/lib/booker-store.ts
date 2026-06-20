@@ -224,10 +224,38 @@ export type ProRequest = {
   createdAt: number;
 };
 
+export type AgendaSlot = {
+  id: string;
+  day: number; // 0..6
+  hour: number; // 8..19, supports .5
+  dur: number; // hours
+  label: string;
+  clientName: string;
+  serviceName: string;
+  price: number;
+};
+
+export type ProClient = {
+  id: string;
+  name: string;
+  visits: number;
+  lastService: string;
+  spent: number;
+  rating: number;
+  note?: string;
+  vip?: boolean;
+};
+
+export type ProSettings = {
+  radiusKm: number;
+  minBudget: number;
+  autoAccept: boolean;
+};
+
 type State = {
   role: Role;
-  proIdentityId: string; // which pro the user "is" when in pro mode
-  proVisible: boolean; // pro visibility toggle
+  proIdentityId: string;
+  proVisible: boolean;
   selectedProId: string;
   favorites: string[];
   bookings: Booking[];
@@ -235,7 +263,13 @@ type State = {
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
-  proInbox: ProRequest[]; // demandes entrantes côté pro
+  proInbox: ProRequest[];
+  proServices: Service[];
+  proAgenda: AgendaSlot[];
+  proClients: ProClient[];
+  proSettings: ProSettings;
+  proInboxFilter: { maxKm: number; minBudget: number };
+  revenuePeriod: "3m" | "6m" | "12m";
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   view: "map" | "list" | "ai";
   searchQuery: string;
@@ -263,6 +297,18 @@ type State = {
   pushNotification: (n: { title: string; body: string }) => void;
   acceptProRequest: (id: string) => void;
   declineProRequest: (id: string) => void;
+  // pro CRUD
+  addProService: (s: Omit<Service, "id">) => void;
+  updateProService: (id: string, s: Partial<Service>) => void;
+  deleteProService: (id: string) => void;
+  addAgendaSlot: (s: Omit<AgendaSlot, "id">) => void;
+  removeAgendaSlot: (id: string) => void;
+  addProClient: (c: Omit<ProClient, "id">) => void;
+  updateProClientNote: (id: string, note: string) => void;
+  toggleProClientVip: (id: string) => void;
+  setProSettings: (s: Partial<ProSettings>) => void;
+  setProInboxFilter: (f: Partial<State["proInboxFilter"]>) => void;
+  setRevenuePeriod: (p: "3m" | "6m" | "12m") => void;
 };
 
 export const useBooker = create<State>((set) => ({
