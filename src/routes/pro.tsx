@@ -18,13 +18,13 @@ export const Route = createFileRoute("/pro")({
   component: ProDashboard,
 });
 
-const TODAY_AGENDA = [
-  { time: "09:00", client: "Sophie L.", service: "Brushing", location: "Paris 17e", duration: 45, price: 45, status: "done" as const },
-  { time: "10:30", client: "Anna R.", service: "Coupe + brushing", location: "Levallois", duration: 60, price: 55, status: "done" as const },
-  { time: "12:00", client: "Pause déjeuner", service: "", location: "", duration: 60, price: 0, status: "break" as const },
-  { time: "14:00", client: "Marion D.", service: "Couleur", location: "Paris 17e", duration: 90, price: 80, status: "next" as const },
-  { time: "16:00", client: "Camille T.", service: "Balayage", location: "Clichy", duration: 120, price: 120, status: "upcoming" as const },
-];
+function fmtHour(h: number) {
+  const hh = Math.floor(h);
+  const mm = (h - hh) * 60;
+  return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
+}
+
+
 
 function ProDashboard() {
   const proIdentityId = useBooker((s) => s.proIdentityId);
@@ -35,15 +35,33 @@ function ProDashboard() {
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
   const pushNotification = useBooker((s) => s.pushNotification);
+  const agenda = useBooker((s) => s.proAgenda);
+  const addAgenda = useBooker((s) => s.addAgendaSlot);
+
+  const today = agenda.filter((a) => a.day === 0).sort((a, b) => a.hour - b.hour);
+  const nowHour = new Date().getHours();
+  const todayWithStatus = today.map((a) => ({
+    ...a,
+    status: a.hour + a.dur <= nowHour ? "done" : a.hour <= nowHour + 1 ? "next" : "upcoming",
+  })) as Array<(typeof today)[number] & { status: "done" | "next" | "upcoming" }>;
 
   const pending = proInbox.filter((r) => r.status === "pending");
-  const todayRevenue = TODAY_AGENDA.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
-  const dayTotal = TODAY_AGENDA.filter((a) => a.status !== "break").reduce((s, a) => s + a.price, 0);
+  const todayRevenue = todayWithStatus.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
+  const dayTotal = todayWithStatus.reduce((s, a) => s + a.price, 0);
 
   function handleAccept(id: string) {
     const req = proInbox.find((r) => r.id === id);
     if (!req) return;
     accept(id);
+    addAgenda({
+      day: req.when.toLowerCase().startsWith("demain") ? 1 : 0,
+      hour: 17,
+      dur: 1,
+      label: `${req.serviceName} · ${req.clientName.split(" ")[0]}`,
+      clientName: req.clientName,
+      serviceName: req.serviceName,
+      price: req.price,
+    });
     pushNotification({ title: "Demande acceptée", body: `${req.serviceName} — ${req.clientName}` });
     toast.success(`Demande de ${req.clientName} acceptée`);
   }
@@ -52,6 +70,13 @@ function ProDashboard() {
     decline(id);
     toast("Demande déclinée");
   }
+
+  function toggleVisibility() {
+    const next = !proVisible;
+    setProVisible(next);
+    toast(next ? "Vous êtes visible · disponible maintenant" : "Visibilité désactivée");
+  }
+
 
   return (
     <AppLayout>
@@ -64,12 +89,12 @@ function ProDashboard() {
               <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Espace pro</div>
               <h1 className="text-3xl font-semibold">Bonjour {pro.name.split(" ")[0]} 👋</h1>
               <div className="text-sm text-muted-foreground mt-0.5">
-                {TODAY_AGENDA.filter((a) => a.status !== "break").length} rendez-vous aujourd'hui · {dayTotal} € prévus
+                {today.length} rendez-vous aujourd'hui · {dayTotal} € prévus
               </div>
             </div>
           </div>
           <button
-            onClick={() => setProVisible(!proVisible)}
+            onClick={toggleVisibility}
             className={`px-5 py-3 rounded-2xl font-semibold text-sm flex items-center gap-2 transition ${
               proVisible
                 ? "bg-emerald-500 text-white shadow-glow hover:bg-emerald-600"
@@ -83,7 +108,7 @@ function ProDashboard() {
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-4">
-          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${TODAY_AGENDA.filter((a) => a.status !== "break").length}`} sub={`${TODAY_AGENDA.filter((a) => a.status === "done").length} terminés`} />
+          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${today.length}`} sub={`${todayWithStatus.filter((a) => a.status === "done").length} terminés`} />
           <Kpi icon={Wallet} label="Revenu du jour" value={`${todayRevenue} €`} sub={`/ ${dayTotal} € prévus`} accent />
           <Kpi icon={Inbox} label="Demandes en attente" value={`${pending.length}`} sub="à traiter" />
           <Kpi icon={TrendingUp} label="Cette semaine" value="+18%" sub="vs sem. dernière" />
@@ -158,27 +183,26 @@ function ProDashboard() {
               <Link to="/pro/agenda" className="text-xs font-semibold text-emerald-600 hover:underline">Semaine</Link>
             </div>
             <div className="space-y-2">
-              {TODAY_AGENDA.map((a, i) => (
+              {todayWithStatus.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-8">Aucun RDV aujourd'hui.</div>
+              )}
+              {todayWithStatus.map((a) => (
                 <div
-                  key={i}
+                  key={a.id}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition ${
                     a.status === "next"
                       ? "border-emerald-500 bg-emerald-50/60"
                       : a.status === "done"
                       ? "border-border opacity-60"
-                      : a.status === "break"
-                      ? "border-dashed border-border bg-secondary/30"
                       : "border-border"
                   }`}
                 >
-                  <div className="w-14 text-sm font-semibold tabular-nums">{a.time}</div>
+                  <div className="w-14 text-sm font-semibold tabular-nums">{fmtHour(a.hour)}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{a.client}</div>
-                    {a.service && (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {a.service} · {a.duration} min{a.location ? ` · ${a.location}` : ""}
-                      </div>
-                    )}
+                    <div className="text-sm font-medium truncate">{a.clientName}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {a.serviceName} · {Math.round(a.dur * 60)} min
+                    </div>
                   </div>
                   {a.price > 0 && <div className="text-sm font-semibold">{a.price} €</div>}
                   {a.status === "next" && (

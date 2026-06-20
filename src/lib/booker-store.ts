@@ -224,10 +224,38 @@ export type ProRequest = {
   createdAt: number;
 };
 
+export type AgendaSlot = {
+  id: string;
+  day: number; // 0..6
+  hour: number; // 8..19, supports .5
+  dur: number; // hours
+  label: string;
+  clientName: string;
+  serviceName: string;
+  price: number;
+};
+
+export type ProClient = {
+  id: string;
+  name: string;
+  visits: number;
+  lastService: string;
+  spent: number;
+  rating: number;
+  note?: string;
+  vip?: boolean;
+};
+
+export type ProSettings = {
+  radiusKm: number;
+  minBudget: number;
+  autoAccept: boolean;
+};
+
 type State = {
   role: Role;
-  proIdentityId: string; // which pro the user "is" when in pro mode
-  proVisible: boolean; // pro visibility toggle
+  proIdentityId: string;
+  proVisible: boolean;
   selectedProId: string;
   favorites: string[];
   bookings: Booking[];
@@ -235,7 +263,13 @@ type State = {
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
-  proInbox: ProRequest[]; // demandes entrantes côté pro
+  proInbox: ProRequest[];
+  proServices: Service[];
+  proAgenda: AgendaSlot[];
+  proClients: ProClient[];
+  proSettings: ProSettings;
+  proInboxFilter: { maxKm: number; minBudget: number };
+  revenuePeriod: "3m" | "6m" | "12m";
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   view: "map" | "list" | "ai";
   searchQuery: string;
@@ -263,6 +297,18 @@ type State = {
   pushNotification: (n: { title: string; body: string }) => void;
   acceptProRequest: (id: string) => void;
   declineProRequest: (id: string) => void;
+  // pro CRUD
+  addProService: (s: Omit<Service, "id">) => void;
+  updateProService: (id: string, s: Partial<Service>) => void;
+  deleteProService: (id: string) => void;
+  addAgendaSlot: (s: Omit<AgendaSlot, "id">) => void;
+  removeAgendaSlot: (id: string) => void;
+  addProClient: (c: Omit<ProClient, "id">) => void;
+  updateProClientNote: (id: string, note: string) => void;
+  toggleProClientVip: (id: string) => void;
+  setProSettings: (s: Partial<ProSettings>) => void;
+  setProInboxFilter: (f: Partial<State["proInboxFilter"]>) => void;
+  setRevenuePeriod: (p: "3m" | "6m" | "12m") => void;
 };
 
 export const useBooker = create<State>((set) => ({
@@ -288,6 +334,26 @@ export const useBooker = create<State>((set) => ({
     { id: "n3", title: "Promotion -20%", body: "Sur votre premier massage bien-être.", at: Date.now() - 86400_000, read: false },
   ],
   requests: [],
+  proServices: PROS.find((p) => p.id === "camille")!.services.map((s) => ({ ...s })),
+  proAgenda: [
+    { id: "ag1", day: 0, hour: 9, dur: 1, label: "Brushing · Sophie", clientName: "Sophie L.", serviceName: "Brushing", price: 45 },
+    { id: "ag2", day: 0, hour: 14, dur: 1.5, label: "Couleur · Marion", clientName: "Marion D.", serviceName: "Couleur", price: 80 },
+    { id: "ag3", day: 1, hour: 10, dur: 2, label: "Balayage · Léa", clientName: "Léa M.", serviceName: "Balayage", price: 120 },
+    { id: "ag4", day: 2, hour: 11, dur: 1, label: "Coupe · Inès", clientName: "Inès B.", serviceName: "Coupe", price: 45 },
+    { id: "ag5", day: 3, hour: 15, dur: 1, label: "Brushing · Anna", clientName: "Anna R.", serviceName: "Brushing", price: 45 },
+    { id: "ag6", day: 4, hour: 9, dur: 2, label: "Couleur · Camille", clientName: "Camille T.", serviceName: "Couleur", price: 80 },
+    { id: "ag7", day: 5, hour: 14, dur: 1, label: "Brushing · Sarah", clientName: "Sarah K.", serviceName: "Brushing", price: 45 },
+  ],
+  proClients: [
+    { id: "c1", name: "Marion Durand", visits: 12, lastService: "Couleur", spent: 720, rating: 5, vip: true, note: "Préfère samedi matin. Allergique aux sulfates." },
+    { id: "c2", name: "Sophie Laurent", visits: 8, lastService: "Brushing", spent: 360, rating: 5, vip: true },
+    { id: "c3", name: "Anna Roux", visits: 5, lastService: "Coupe + brushing", spent: 275, rating: 4 },
+    { id: "c4", name: "Léa Martin", visits: 3, lastService: "Balayage", spent: 360, rating: 5 },
+    { id: "c5", name: "Inès Bernard", visits: 2, lastService: "Coupe", spent: 90, rating: 4 },
+  ],
+  proSettings: { radiusKm: 5, minBudget: 0, autoAccept: false },
+  proInboxFilter: { maxKm: 10, minBudget: 0 },
+  revenuePeriod: "6m",
   filters: { categories: [], atHome: false, maxKm: 5 },
   view: "map",
   searchQuery: "",
@@ -380,6 +446,25 @@ export const useBooker = create<State>((set) => ({
     set((s) => ({
       proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "declined" } : r)),
     })),
+  addProService: (s) =>
+    set((st) => ({ proServices: [...st.proServices, { ...s, id: `sv_${Date.now()}` }] })),
+  updateProService: (id, patch) =>
+    set((st) => ({ proServices: st.proServices.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+  deleteProService: (id) =>
+    set((st) => ({ proServices: st.proServices.filter((x) => x.id !== id) })),
+  addAgendaSlot: (slot) =>
+    set((st) => ({ proAgenda: [...st.proAgenda, { ...slot, id: `ag_${Date.now()}` }] })),
+  removeAgendaSlot: (id) =>
+    set((st) => ({ proAgenda: st.proAgenda.filter((x) => x.id !== id) })),
+  addProClient: (c) =>
+    set((st) => ({ proClients: [...st.proClients, { ...c, id: `c_${Date.now()}` }] })),
+  updateProClientNote: (id, note) =>
+    set((st) => ({ proClients: st.proClients.map((c) => (c.id === id ? { ...c, note } : c)) })),
+  toggleProClientVip: (id) =>
+    set((st) => ({ proClients: st.proClients.map((c) => (c.id === id ? { ...c, vip: !c.vip } : c)) })),
+  setProSettings: (p) => set((st) => ({ proSettings: { ...st.proSettings, ...p } })),
+  setProInboxFilter: (f) => set((st) => ({ proInboxFilter: { ...st.proInboxFilter, ...f } })),
+  setRevenuePeriod: (p) => set({ revenuePeriod: p }),
 }));
 
 export function getPro(id: string): Pro {
