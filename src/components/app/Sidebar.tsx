@@ -7,7 +7,7 @@ import {
 import { useBooker } from "@/lib/booker-store";
 
 type ClientPath = "/" | "/reservations" | "/messages" | "/favoris" | "/paiements" | "/avis" | "/calendrier" | "/analyses" | "/parametres";
-type ProPath = "/pro" | "/pro/demandes" | "/pro/agenda" | "/pro/clients" | "/pro/prestations" | "/pro/revenus" | "/messages" | "/parametres";
+type ProPath = "/pro" | "/pro/demandes" | "/pro/agenda" | "/pro/clients" | "/pro/prestations" | "/pro/revenus" | "/pro/messages" | "/pro/parametres";
 
 const clientNav: { to: ClientPath; label: string; icon: typeof Home; badge?: string }[] = [
   { to: "/", label: "Rechercher", icon: Home },
@@ -28,8 +28,8 @@ const proNav: { to: ProPath; label: string; icon: typeof Home; badge?: string | 
   { to: "/pro/clients", label: "Mes clients", icon: Users },
   { to: "/pro/prestations", label: "Mes prestations", icon: Scissors },
   { to: "/pro/revenus", label: "Revenus", icon: Wallet },
-  { to: "/messages", label: "Messages", icon: MessageSquare },
-  { to: "/parametres", label: "Paramètres", icon: Settings },
+  { to: "/pro/messages", label: "Messages clients", icon: MessageSquare },
+  { to: "/pro/parametres", label: "Paramètres", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -37,7 +37,11 @@ export function Sidebar() {
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
-  const unread = useBooker((s) => s.messages.filter((m) => m.from === "pro").length);
+  const unread = useBooker((s) =>
+    s.role === "client"
+      ? s.messages.filter((m) => m.from === "pro").length
+      : s.proMessages.filter((m) => m.from === "client").length,
+  );
   const inboxCount = useBooker((s) => s.proInbox.filter((r) => r.status === "pending").length);
 
   const isClient = role === "client";
@@ -91,7 +95,7 @@ export function Sidebar() {
         {nav.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.to;
-          const isMessages = item.to === "/messages";
+          const isMessages = item.to === "/messages" || item.to === "/pro/messages";
           const isInbox = item.to === "/pro/demandes";
           return (
             <Link

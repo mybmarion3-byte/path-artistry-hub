@@ -186,6 +186,15 @@ export type Message = {
   at: number;
 };
 
+// Pro-side messages: conversations with clients
+export type ProMessage = {
+  id: string;
+  clientId: string; // matches proClients.id
+  text: string;
+  from: "me" | "client"; // "me" = the pro
+  at: number;
+};
+
 export type Review = {
   id: string;
   proId: string;
@@ -260,6 +269,7 @@ type State = {
   favorites: string[];
   bookings: Booking[];
   messages: Message[];
+  proMessages: ProMessage[];
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
@@ -282,6 +292,7 @@ type State = {
   addBooking: (b: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
   cancelBooking: (id: string) => void;
   sendMessage: (proId: string, text: string) => void;
+  sendProMessage: (clientId: string, text: string) => void;
   addReview: (r: Omit<Review, "id" | "at">) => void;
   setView: (v: "map" | "list" | "ai") => void;
   setFilters: (f: Partial<State["filters"]>) => void;
@@ -326,6 +337,12 @@ export const useBooker = create<State>((set) => ({
   messages: [
     { id: "m1", proId: "camille", text: "Bonjour Marion ! Hâte de vous coiffer 😊", from: "pro", at: Date.now() - 3600_000 },
     { id: "m2", proId: "thomas", text: "Prêt pour votre séance ?", from: "pro", at: Date.now() - 7200_000 },
+  ],
+  proMessages: [
+    { id: "pm1", clientId: "c1", text: "Bonjour Camille, on confirme samedi à 14h ?", from: "client", at: Date.now() - 1800_000 },
+    { id: "pm2", clientId: "c1", text: "Oui parfait, à samedi 👋", from: "me", at: Date.now() - 1700_000 },
+    { id: "pm3", clientId: "c2", text: "Merci pour le brushing, j'ai adoré !", from: "client", at: Date.now() - 86400_000 },
+    { id: "pm4", clientId: "c3", text: "Vous avez un créneau jeudi ?", from: "client", at: Date.now() - 600_000 },
   ],
   reviews: [],
   notifications: [
@@ -385,6 +402,13 @@ export const useBooker = create<State>((set) => ({
       messages: [
         ...s.messages,
         { id: `msg_${Date.now()}`, proId, text, from: "me", at: Date.now() },
+      ],
+    })),
+  sendProMessage: (clientId, text) =>
+    set((s) => ({
+      proMessages: [
+        ...s.proMessages,
+        { id: `pmsg_${Date.now()}`, clientId, text, from: "me", at: Date.now() },
       ],
     })),
   addReview: (r) =>

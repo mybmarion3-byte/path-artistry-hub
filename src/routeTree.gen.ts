@@ -21,6 +21,8 @@ import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProRevenusRouteImport } from './routes/pro.revenus'
 import { Route as ProPrestationsRouteImport } from './routes/pro.prestations'
+import { Route as ProParametresRouteImport } from './routes/pro.parametres'
+import { Route as ProMessagesRouteImport } from './routes/pro.messages'
 import { Route as ProDemandesRouteImport } from './routes/pro.demandes'
 import { Route as ProClientsRouteImport } from './routes/pro.clients'
 import { Route as ProAgendaRouteImport } from './routes/pro.agenda'
@@ -85,6 +87,16 @@ const ProPrestationsRoute = ProPrestationsRouteImport.update({
   path: '/prestations',
   getParentRoute: () => ProRoute,
 } as any)
+const ProParametresRoute = ProParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => ProRoute,
+} as any)
+const ProMessagesRoute = ProMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => ProRoute,
+} as any)
 const ProDemandesRoute = ProDemandesRouteImport.update({
   id: '/demandes',
   path: '/demandes',
@@ -115,6 +127,8 @@ export interface FileRoutesByFullPath {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/messages': typeof ProMessagesRoute
+  '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
 }
@@ -132,6 +146,8 @@ export interface FileRoutesByTo {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/messages': typeof ProMessagesRoute
+  '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
 }
@@ -150,6 +166,8 @@ export interface FileRoutesById {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/messages': typeof ProMessagesRoute
+  '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
 }
@@ -169,6 +187,8 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/messages'
+    | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +206,8 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/messages'
+    | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
   id:
@@ -203,6 +225,8 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/messages'
+    | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
   fileRoutesById: FileRoutesById
@@ -306,6 +330,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProPrestationsRouteImport
       parentRoute: typeof ProRoute
     }
+    '/pro/parametres': {
+      id: '/pro/parametres'
+      path: '/parametres'
+      fullPath: '/pro/parametres'
+      preLoaderRoute: typeof ProParametresRouteImport
+      parentRoute: typeof ProRoute
+    }
+    '/pro/messages': {
+      id: '/pro/messages'
+      path: '/messages'
+      fullPath: '/pro/messages'
+      preLoaderRoute: typeof ProMessagesRouteImport
+      parentRoute: typeof ProRoute
+    }
     '/pro/demandes': {
       id: '/pro/demandes'
       path: '/demandes'
@@ -334,6 +372,8 @@ interface ProRouteChildren {
   ProAgendaRoute: typeof ProAgendaRoute
   ProClientsRoute: typeof ProClientsRoute
   ProDemandesRoute: typeof ProDemandesRoute
+  ProMessagesRoute: typeof ProMessagesRoute
+  ProParametresRoute: typeof ProParametresRoute
   ProPrestationsRoute: typeof ProPrestationsRoute
   ProRevenusRoute: typeof ProRevenusRoute
 }
@@ -342,6 +382,8 @@ const ProRouteChildren: ProRouteChildren = {
   ProAgendaRoute: ProAgendaRoute,
   ProClientsRoute: ProClientsRoute,
   ProDemandesRoute: ProDemandesRoute,
+  ProMessagesRoute: ProMessagesRoute,
+  ProParametresRoute: ProParametresRoute,
   ProPrestationsRoute: ProPrestationsRoute,
   ProRevenusRoute: ProRevenusRoute,
 }
