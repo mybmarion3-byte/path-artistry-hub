@@ -266,9 +266,17 @@ type State = {
 };
 
 export const useBooker = create<State>((set) => ({
+  role: "client",
+  proIdentityId: "camille",
+  proVisible: true,
   selectedProId: "camille",
   favorites: ["camille"],
   bookings: [],
+  proInbox: [
+    { id: "pr1", clientName: "Sophie L.", serviceName: "Brushing", location: "Paris 17e", distanceKm: 1.2, when: "Aujourd'hui 15h00", price: 45, status: "pending", createdAt: Date.now() - 300_000 },
+    { id: "pr2", clientName: "Léa M.", serviceName: "Couleur", location: "Levallois", distanceKm: 2.4, when: "Aujourd'hui 17h00", price: 85, status: "pending", createdAt: Date.now() - 600_000 },
+    { id: "pr3", clientName: "Inès B.", serviceName: "Coupe + brushing", location: "Clichy", distanceKm: 3.1, when: "Demain 10h00", price: 55, status: "pending", createdAt: Date.now() - 1200_000 },
+  ],
   messages: [
     { id: "m1", proId: "camille", text: "Bonjour Marion ! Hâte de vous coiffer 😊", from: "pro", at: Date.now() - 3600_000 },
     { id: "m2", proId: "thomas", text: "Prêt pour votre séance ?", from: "pro", at: Date.now() - 7200_000 },
