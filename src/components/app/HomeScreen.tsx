@@ -720,10 +720,12 @@ function BookingDialog({
     }
   }, [state?.pro.id, state?.service?.id, state?.slotIso]);
 
+  const proId = state?.pro.id ?? PROS[0].id;
+  const slots = useBookerSlots(proId);
+
   if (!state) return null;
   const pro = state.pro;
   const service = pro.services.find((s) => s.id === serviceId) ?? pro.services[0];
-  const slots = useBookerSlots(pro.id);
   const slot = slots.find((s) => s.iso === slotIso) ?? slots[0];
 
   const serviceFee = Math.round(service.price * 0.05);
