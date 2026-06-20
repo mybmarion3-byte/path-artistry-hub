@@ -446,6 +446,25 @@ export const useBooker = create<State>((set) => ({
     set((s) => ({
       proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "declined" } : r)),
     })),
+  addProService: (s) =>
+    set((st) => ({ proServices: [...st.proServices, { ...s, id: `sv_${Date.now()}` }] })),
+  updateProService: (id, patch) =>
+    set((st) => ({ proServices: st.proServices.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+  deleteProService: (id) =>
+    set((st) => ({ proServices: st.proServices.filter((x) => x.id !== id) })),
+  addAgendaSlot: (slot) =>
+    set((st) => ({ proAgenda: [...st.proAgenda, { ...slot, id: `ag_${Date.now()}` }] })),
+  removeAgendaSlot: (id) =>
+    set((st) => ({ proAgenda: st.proAgenda.filter((x) => x.id !== id) })),
+  addProClient: (c) =>
+    set((st) => ({ proClients: [...st.proClients, { ...c, id: `c_${Date.now()}` }] })),
+  updateProClientNote: (id, note) =>
+    set((st) => ({ proClients: st.proClients.map((c) => (c.id === id ? { ...c, note } : c)) })),
+  toggleProClientVip: (id) =>
+    set((st) => ({ proClients: st.proClients.map((c) => (c.id === id ? { ...c, vip: !c.vip } : c)) })),
+  setProSettings: (p) => set((st) => ({ proSettings: { ...st.proSettings, ...p } })),
+  setProInboxFilter: (f) => set((st) => ({ proInboxFilter: { ...st.proInboxFilter, ...f } })),
+  setRevenuePeriod: (p) => set({ revenuePeriod: p }),
 }));
 
 export function getPro(id: string): Pro {
