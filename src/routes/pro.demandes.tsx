@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
 import { useBooker } from "@/lib/booker-store";
 import { Inbox, Check, X, MapPin, Clock, Zap, Filter } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pro/demandes")({
@@ -13,9 +14,33 @@ function Page() {
   const inbox = useBooker((s) => s.proInbox);
   const accept = useBooker((s) => s.acceptProRequest);
   const decline = useBooker((s) => s.declineProRequest);
+  const filter = useBooker((s) => s.proInboxFilter);
+  const setFilter = useBooker((s) => s.setProInboxFilter);
+  const addAgenda = useBooker((s) => s.addAgendaSlot);
+  const [showFilter, setShowFilter] = useState(false);
 
-  const pending = inbox.filter((r) => r.status === "pending");
-  const handled = inbox.filter((r) => r.status !== "pending");
+  const filtered = inbox.filter(
+    (r) => r.status !== "pending" || (r.distanceKm <= filter.maxKm && r.price >= filter.minBudget),
+  );
+  const pending = filtered.filter((r) => r.status === "pending");
+  const handled = filtered.filter((r) => r.status !== "pending");
+
+  function handleAccept(id: string) {
+    const r = inbox.find((x) => x.id === id);
+    if (!r) return;
+    accept(id);
+    // auto-add to today's agenda at next free hour as a quick win
+    addAgenda({
+      day: r.when.toLowerCase().startsWith("demain") ? 1 : 0,
+      hour: 16,
+      dur: 1,
+      label: `${r.serviceName} · ${r.clientName.split(" ")[0]}`,
+      clientName: r.clientName,
+      serviceName: r.serviceName,
+      price: r.price,
+    });
+    toast.success(`Demande de ${r.clientName} acceptée · ajoutée à l'agenda`);
+  }
 
   return (
     <AppLayout>
@@ -28,10 +53,39 @@ function Page() {
             </h1>
             <p className="text-muted-foreground mt-1">{pending.length} en attente · {handled.length} traitées</p>
           </div>
-          <button className="h-10 px-4 rounded-xl border border-border flex items-center gap-2 text-sm hover:bg-secondary">
+          <button
+            onClick={() => setShowFilter((v) => !v)}
+            className={`h-10 px-4 rounded-xl border flex items-center gap-2 text-sm transition ${
+              showFilter ? "bg-emerald-500 text-white border-emerald-500" : "border-border hover:bg-secondary"
+            }`}
+          >
             <Filter className="w-4 h-4" /> Filtrer
           </button>
         </div>
+
+        {showFilter && (
+          <div className="mt-4 bg-card border border-border rounded-2xl p-5 shadow-soft flex gap-6 items-end">
+            <label className="flex-1">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Distance max · {filter.maxKm} km</div>
+              <input
+                type="range" min={1} max={20} value={filter.maxKm}
+                onChange={(e) => setFilter({ maxKm: Number(e.target.value) })}
+                className="w-full accent-emerald-500"
+              />
+            </label>
+            <label className="flex-1">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Budget min · {filter.minBudget} €</div>
+              <input
+                type="range" min={0} max={150} step={5} value={filter.minBudget}
+                onChange={(e) => setFilter({ minBudget: Number(e.target.value) })}
+                className="w-full accent-emerald-500"
+              />
+            </label>
+            <button onClick={() => setFilter({ maxKm: 20, minBudget: 0 })} className="text-xs text-muted-foreground hover:underline">
+              Réinitialiser
+            </button>
+          </div>
+        )}
 
         <div className="mt-6 space-y-3">
           {pending.length === 0 && (
@@ -68,7 +122,7 @@ function Page() {
               </div>
               <div className="flex gap-2 mt-4">
                 <button
-                  onClick={() => { accept(r.id); toast.success(`Demande de ${r.clientName} acceptée`); }}
+                  onClick={() => handleAccept(r.id)}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5"
                 >
                   <Check className="w-4 h-4" /> Accepter
