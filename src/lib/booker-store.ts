@@ -186,6 +186,15 @@ export type Message = {
   at: number;
 };
 
+// Pro-side messages: conversations with clients
+export type ProMessage = {
+  id: string;
+  clientId: string; // matches proClients.id
+  text: string;
+  from: "me" | "client"; // "me" = the pro
+  at: number;
+};
+
 export type Review = {
   id: string;
   proId: string;
