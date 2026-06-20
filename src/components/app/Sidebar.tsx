@@ -95,7 +95,7 @@ export function Sidebar() {
         {nav.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.to;
-          const isMessages = item.to === "/messages";
+          const isMessages = item.to === "/messages" || item.to === "/pro/messages";
           const isInbox = item.to === "/pro/demandes";
           return (
             <Link
