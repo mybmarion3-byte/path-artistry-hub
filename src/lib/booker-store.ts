@@ -269,6 +269,7 @@ type State = {
   favorites: string[];
   bookings: Booking[];
   messages: Message[];
+  proMessages: ProMessage[];
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
