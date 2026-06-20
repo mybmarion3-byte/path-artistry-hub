@@ -108,7 +108,7 @@ function ProDashboard() {
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-4">
-          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${TODAY_AGENDA.filter((a) => a.status !== "break").length}`} sub={`${TODAY_AGENDA.filter((a) => a.status === "done").length} terminés`} />
+          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${today.length}`} sub={`${todayWithStatus.filter((a) => a.status === "done").length} terminés`} />
           <Kpi icon={Wallet} label="Revenu du jour" value={`${todayRevenue} €`} sub={`/ ${dayTotal} € prévus`} accent />
           <Kpi icon={Inbox} label="Demandes en attente" value={`${pending.length}`} sub="à traiter" />
           <Kpi icon={TrendingUp} label="Cette semaine" value="+18%" sub="vs sem. dernière" />
