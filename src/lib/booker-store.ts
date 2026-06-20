@@ -370,6 +370,16 @@ export const useBooker = create<State>((set) => ({
         ...s.notifications,
       ],
     })),
+  setRole: (r) => set({ role: r }),
+  setProVisible: (v) => set({ proVisible: v }),
+  acceptProRequest: (id) =>
+    set((s) => ({
+      proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "accepted" } : r)),
+    })),
+  declineProRequest: (id) =>
+    set((s) => ({
+      proInbox: s.proInbox.map((r) => (r.id === id ? { ...r, status: "declined" } : r)),
+    })),
 }));
 
 export function getPro(id: string): Pro {
