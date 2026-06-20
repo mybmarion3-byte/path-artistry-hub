@@ -201,11 +201,14 @@ function ProListColumn(props: {
           const active = p.id === selectedProId;
           const fav = favorites.includes(p.id);
           return (
-            <button
+            <div
               key={p.id}
+              role="button"
+              tabIndex={0}
               onClick={() => props.onSelect(p.id)}
               onDoubleClick={() => props.onOpenProfile(p.id)}
-              className={`w-full text-left p-3 rounded-2xl border transition relative group ${
+              onKeyDown={(e) => { if (e.key === "Enter") props.onSelect(p.id); }}
+              className={`w-full text-left p-3 rounded-2xl border transition relative group cursor-pointer ${
                 active ? "border-primary bg-accent/40" : "border-border hover:border-primary/40 hover:bg-secondary/50"
               }`}
             >
@@ -250,7 +253,7 @@ function ProListColumn(props: {
                   </div>
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

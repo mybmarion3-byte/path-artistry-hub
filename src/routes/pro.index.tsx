@@ -8,7 +8,7 @@ import {
 import { toast } from "sonner";
 import mapBg from "@/assets/map-paris.jpg";
 
-export const Route = createFileRoute("/pro")({
+export const Route = createFileRoute("/pro/")({
   head: () => ({
     meta: [
       { title: "Tableau de bord pro — Booker 2030" },
