@@ -210,7 +210,24 @@ export type InstantRequest = {
 
 export type When = { kind: "now" } | { kind: "today" } | { kind: "date"; iso: string };
 
+export type Role = "client" | "pro";
+
+export type ProRequest = {
+  id: string;
+  clientName: string;
+  serviceName: string;
+  location: string;
+  distanceKm: number;
+  when: string;
+  price: number;
+  status: "pending" | "accepted" | "declined";
+  createdAt: number;
+};
+
 type State = {
+  role: Role;
+  proIdentityId: string; // which pro the user "is" when in pro mode
+  proVisible: boolean; // pro visibility toggle
   selectedProId: string;
   favorites: string[];
   bookings: Booking[];
@@ -218,11 +235,14 @@ type State = {
   reviews: Review[];
   notifications: { id: string; title: string; body: string; at: number; read: boolean }[];
   requests: InstantRequest[];
+  proInbox: ProRequest[]; // demandes entrantes côté pro
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   view: "map" | "list" | "ai";
   searchQuery: string;
   location: string;
   when: When;
+  setRole: (r: Role) => void;
+  setProVisible: (v: boolean) => void;
   selectPro: (id: string) => void;
   toggleFavorite: (id: string) => void;
   addBooking: (b: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
@@ -241,6 +261,8 @@ type State = {
   createRequest: (r: Omit<InstantRequest, "id" | "createdAt" | "status" | "notifiedProIds">) => InstantRequest;
   matchRequest: (id: string, proId: string) => void;
   pushNotification: (n: { title: string; body: string }) => void;
+  acceptProRequest: (id: string) => void;
+  declineProRequest: (id: string) => void;
 };
 
 export const useBooker = create<State>((set) => ({
