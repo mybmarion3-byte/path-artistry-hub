@@ -94,7 +94,7 @@ function ProDashboard() {
             </div>
           </div>
           <button
-            onClick={() => setProVisible(!proVisible)}
+            onClick={toggleVisibility}
             className={`px-5 py-3 rounded-2xl font-semibold text-sm flex items-center gap-2 transition ${
               proVisible
                 ? "bg-emerald-500 text-white shadow-glow hover:bg-emerald-600"
