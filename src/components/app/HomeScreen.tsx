@@ -1,134 +1,171 @@
-import { useState } from "react";
-import { Star, Heart, Plus, Search, Filter, ArrowUpDown, MapIcon, List as ListIcon, Sparkles, Home as HomeIcon, ShieldCheck, CreditCard, MessageCircle, CheckCircle2, X, Send } from "lucide-react";
-import { PROS, getPro, useBooker, type Pro } from "@/lib/booker-store";
+import { useMemo, useState, useEffect } from "react";
+import {
+  Star, Heart, Search, Filter, ArrowUpDown, MapIcon, List as ListIcon,
+  Sparkles, Home as HomeIcon, ShieldCheck, CreditCard, MessageCircle,
+  CheckCircle2, X, Send, Clock, Zap, Video, Building2, ArrowRight, Loader2, Check,
+} from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { PROS, getPro, useBooker, CATEGORIES, type Pro, type Mode, type Service } from "@/lib/booker-store";
+import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import mapBg from "@/assets/map-paris.jpg";
-
-const SLOTS = ["14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30"];
 
 export function HomeScreen() {
   const {
-    selectedProId,
-    favorites,
-    filters,
-    view,
-    selectPro,
-    toggleFavorite,
-    addBooking,
-    removeFilterCategory,
-    clearFilters,
-    setView,
+    selectedProId, favorites, filters, view,
+    searchQuery, when, location,
+    selectPro, toggleFavorite, setView,
+    removeFilterCategory, clearFilters, toggleFilterCategory, setFilters,
   } = useBooker();
 
-  const selected = getPro(selectedProId);
-  const [day, setDay] = useState<"today" | "tomorrow">("today");
-  const [slot, setSlot] = useState<string>("now");
-  const [confirmation, setConfirmation] = useState<null | { proId: string; time: string }>(
-    null,
+  const results = useMemo(
+    () =>
+      matchPros({
+        query: searchQuery,
+        category: filters.categories[0],
+        when,
+        maxKm: filters.maxKm,
+        atHome: filters.atHome,
+      }),
+    [searchQuery, when, filters],
   );
+
+  const selectedResult =
+    results.find((r) => r.pro.id === selectedProId) ?? results[0] ?? null;
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [bookingFor, setBookingFor] = useState<{ pro: Pro; service?: Service; slotIso?: string } | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const filtered = PROS.filter((p) => {
-    if (filters.categories.length && !filters.categories.includes(p.category)) return false;
-    if (filters.atHome && !p.atHome) return false;
-    if (p.distanceKm > filters.maxKm) return false;
-    return true;
-  });
-
-  function handleBook() {
-    const time = slot === "now" ? "Maintenant" : slot;
-    addBooking({
-      proId: selected.id,
-      date: new Date().toISOString().slice(0, 10),
-      time,
-      price: selected.price,
-    });
-    setConfirmation({ proId: selected.id, time });
+  function openProfile(id: string) {
+    selectPro(id);
+    setProfileOpen(true);
   }
 
   return (
     <div className="grid grid-cols-[340px_1fr_420px] gap-5 p-5 h-[calc(100vh-5rem)]">
-      {/* Left column - pro list */}
       <ProListColumn
-        filtered={filtered}
+        results={results}
         selectedProId={selectedProId}
         favorites={favorites}
         filters={filters}
         onSelect={selectPro}
+        onOpenProfile={openProfile}
         onFav={toggleFavorite}
         onRemoveCat={removeFilterCategory}
         onClear={clearFilters}
+        onOpenFilters={() => setFiltersOpen(true)}
       />
 
-      {/* Middle - map */}
       <MapView
         view={view}
         setView={setView}
-        pros={filtered}
+        results={results}
         selectedId={selectedProId}
         onSelect={selectPro}
+        onOpenProfile={openProfile}
+        onOpenRequest={() => setRequestOpen(true)}
+        searchQuery={searchQuery}
+        location={location}
       />
 
-      {/* Right - selected pro + booking */}
       <BookingPanel
-        pro={selected}
-        day={day}
-        setDay={setDay}
-        slot={slot}
-        setSlot={setSlot}
-        onBook={handleBook}
+        result={selectedResult}
+        onOpenProfile={() => selectedResult && openProfile(selectedResult.pro.id)}
+        onBook={(slotIso) => selectedResult && setBookingFor({ pro: selectedResult.pro, slotIso })}
+        onOpenRequest={() => setRequestOpen(true)}
       />
-
-      {confirmation && (
-        <ConfirmationModal
-          pro={getPro(confirmation.proId)}
-          time={confirmation.time}
-          onClose={() => setConfirmation(null)}
-        />
-      )}
 
       {/* AI floating button */}
       <button
         onClick={() => setAiOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-primary shadow-glow flex items-center justify-center text-primary-foreground hover:scale-105 transition"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-primary shadow-glow flex items-center justify-center text-primary-foreground hover:scale-105 transition z-30"
         aria-label="Booker AI"
       >
         <Sparkles className="w-6 h-6" />
       </button>
 
-      {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} onPick={(id) => { selectPro(id); setAiOpen(false); }} />}
+      <ProfileSheet
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        result={selectedResult}
+        favorites={favorites}
+        onFav={toggleFavorite}
+        onBook={(service, slotIso) =>
+          selectedResult && setBookingFor({ pro: selectedResult.pro, service, slotIso })
+        }
+      />
+
+      <BookingDialog
+        state={bookingFor}
+        onClose={() => setBookingFor(null)}
+      />
+
+      <InstantRequestDialog
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        defaultLocation={location}
+        defaultCategory={filters.categories[0]}
+      />
+
+      <FiltersDialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        onToggle={toggleFilterCategory}
+        onSetFilters={setFilters}
+      />
+
+      {aiOpen && (
+        <AIAssistant
+          onClose={() => setAiOpen(false)}
+          onPick={(id) => { setAiOpen(false); openProfile(id); }}
+        />
+      )}
     </div>
   );
 }
 
+/* -------------------- Pro list -------------------- */
+
 function ProListColumn(props: {
-  filtered: Pro[];
+  results: MatchResult[];
   selectedProId: string;
   favorites: string[];
   filters: { categories: string[]; atHome: boolean; maxKm: number };
   onSelect: (id: string) => void;
+  onOpenProfile: (id: string) => void;
   onFav: (id: string) => void;
   onRemoveCat: (c: string) => void;
   onClear: () => void;
+  onOpenFilters: () => void;
 }) {
-  const { filtered, selectedProId, favorites, filters, onSelect, onFav, onRemoveCat, onClear } = props;
+  const { results, selectedProId, favorites, filters } = props;
   return (
     <div className="bg-card border border-border rounded-3xl p-5 flex flex-col min-h-0 shadow-soft">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold">Dispo maintenant</h2>
-            <span className="w-2 h-2 rounded-full bg-success" />
+            <h2 className="text-xl font-semibold">Pros autour de vous</h2>
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {filtered.length} pros disponibles
+            {results.length} résultats correspondants
           </p>
         </div>
       </div>
 
       <div className="flex gap-2 mt-4">
-        <button className="flex-1 h-10 rounded-xl border border-border bg-card flex items-center justify-center gap-2 text-sm font-medium hover:bg-secondary transition">
+        <button
+          onClick={props.onOpenFilters}
+          className="flex-1 h-10 rounded-xl border border-border bg-card flex items-center justify-center gap-2 text-sm font-medium hover:bg-secondary transition"
+        >
           <Filter className="w-4 h-4" /> Filtres
-          {filters.categories.length + (filters.atHome ? 1 : 0) > 0 && (
+          {(filters.categories.length + (filters.atHome ? 1 : 0)) > 0 && (
             <span className="ml-1 text-[10px] font-semibold w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
               {filters.categories.length + (filters.atHome ? 1 : 0)}
             </span>
@@ -141,41 +178,46 @@ function ProListColumn(props: {
 
       <div className="flex flex-wrap gap-2 mt-3">
         {filters.categories.map((c) => (
-          <Chip key={c} onRemove={() => onRemoveCat(c)}>{c}</Chip>
+          <Chip key={c} onRemove={() => props.onRemoveCat(c)}>{c}</Chip>
         ))}
         {filters.atHome && <Chip onRemove={() => {}}>À domicile</Chip>}
         <Chip onRemove={() => {}}>Moins de {filters.maxKm} km</Chip>
-        <button
-          onClick={onClear}
-          className="text-xs text-primary font-medium hover:underline px-1"
-        >
-          Effacer tout
-        </button>
+        {(filters.categories.length || filters.atHome) ? (
+          <button onClick={props.onClear} className="text-xs text-primary font-medium hover:underline px-1">
+            Effacer tout
+          </button>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto mt-4 -mx-2 px-2 space-y-2">
-        {filtered.map((p) => {
+        {results.length === 0 && (
+          <div className="text-center py-10 text-sm text-muted-foreground">
+            Aucun pro ne correspond. Essayez d'élargir vos critères ou{" "}
+            <button onClick={props.onClear} className="text-primary underline">réinitialisez</button>.
+          </div>
+        )}
+        {results.map((r) => {
+          const p = r.pro;
           const active = p.id === selectedProId;
           const fav = favorites.includes(p.id);
           return (
             <button
               key={p.id}
-              onClick={() => onSelect(p.id)}
+              onClick={() => props.onSelect(p.id)}
+              onDoubleClick={() => props.onOpenProfile(p.id)}
               className={`w-full text-left p-3 rounded-2xl border transition relative group ${
-                active
-                  ? "border-primary bg-accent/40"
-                  : "border-border hover:border-primary/40 hover:bg-secondary/50"
+                active ? "border-primary bg-accent/40" : "border-border hover:border-primary/40 hover:bg-secondary/50"
               }`}
             >
-              {p.availability === "now" && (
+              {r.statusTone === "now" && (
                 <span className="absolute -top-2 left-12 text-[10px] font-semibold bg-success text-success-foreground px-2 py-0.5 rounded-full">
-                  Disponible
+                  Dispo
                 </span>
               )}
               <div className="flex gap-3">
                 <div className="relative shrink-0">
                   <img src={p.avatar} alt={p.name} className="w-12 h-12 rounded-full object-cover" loading="lazy" />
-                  {p.availability === "now" && (
+                  {r.statusTone === "now" && (
                     <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-card" />
                   )}
                 </div>
@@ -183,7 +225,7 @@ function ProListColumn(props: {
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold text-sm truncate">{p.name}</div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onFav(p.id); }}
+                      onClick={(e) => { e.stopPropagation(); props.onFav(p.id); }}
                       className="shrink-0"
                       aria-label="Favori"
                     >
@@ -197,9 +239,14 @@ function ProListColumn(props: {
                     <span className="text-muted-foreground">({p.reviews})</span>
                     <span className="text-muted-foreground">•</span>
                     <span className="text-muted-foreground">{p.distanceKm} km</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground">dès {p.price}€</span>
                   </div>
-                  <div className={`text-xs font-medium mt-1 ${p.availability === "now" ? "text-success" : "text-muted-foreground"}`}>
-                    {p.availability === "now" ? "Disponible maintenant" : `Disponible à ${p.availability}`}
+                  <div className={`text-xs font-medium mt-1 ${
+                    r.statusTone === "now" ? "text-success" :
+                    r.statusTone === "soon" ? "text-primary" : "text-muted-foreground"
+                  }`}>
+                    {r.statusLabel}
                   </div>
                 </div>
               </div>
@@ -207,10 +254,6 @@ function ProListColumn(props: {
           );
         })}
       </div>
-
-      <button className="mt-3 text-sm font-medium text-primary py-2 hover:underline">
-        Voir plus ({123})
-      </button>
     </div>
   );
 }
@@ -226,24 +269,29 @@ function Chip({ children, onRemove }: { children: React.ReactNode; onRemove: () 
   );
 }
 
+/* -------------------- Map -------------------- */
+
 function MapView(props: {
   view: "map" | "list" | "ai";
   setView: (v: "map" | "list" | "ai") => void;
-  pros: Pro[];
+  results: MatchResult[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onOpenProfile: (id: string) => void;
+  onOpenRequest: () => void;
+  searchQuery: string;
+  location: string;
 }) {
-  const { view, setView, pros, selectedId, onSelect } = props;
+  const { view, setView, results, selectedId, onSelect } = props;
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border shadow-soft bg-secondary">
       <img src={mapBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
 
-      {/* Top controls */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-        <button className="bg-card shadow-card border border-border px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-secondary transition">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+        <button className="bg-card shadow-card border border-border px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
           <Search className="w-4 h-4" />
-          Recherche dans cette zone
+          {props.searchQuery ? `“${props.searchQuery}”` : "Recherche dans cette zone"}
         </button>
       </div>
 
@@ -271,18 +319,21 @@ function MapView(props: {
       </div>
 
       {view === "list" ? (
-        <div className="relative z-10 p-6 grid grid-cols-2 gap-3 overflow-y-auto h-full">
-          {pros.map((p) => (
+        <div className="relative z-10 p-6 grid grid-cols-2 gap-3 overflow-y-auto h-full pt-20">
+          {results.map((r) => (
             <button
-              key={p.id}
-              onClick={() => onSelect(p.id)}
+              key={r.pro.id}
+              onClick={() => props.onOpenProfile(r.pro.id)}
               className="bg-card rounded-2xl p-4 border border-border text-left hover:border-primary transition flex gap-3 shadow-soft"
             >
-              <img src={p.avatar} className="w-14 h-14 rounded-full object-cover" alt="" loading="lazy" />
-              <div>
-                <div className="font-semibold text-sm">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{p.job}</div>
-                <div className="text-xs text-primary font-medium mt-1">{p.price} €</div>
+              <img src={r.pro.avatar} className="w-14 h-14 rounded-full object-cover" alt="" loading="lazy" />
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{r.pro.name}</div>
+                <div className="text-xs text-muted-foreground">{r.pro.job}</div>
+                <div className="text-xs text-primary font-medium mt-1">dès {r.pro.price} €</div>
+                <div className={`text-[11px] mt-1 ${r.statusTone === "now" ? "text-success" : "text-muted-foreground"}`}>
+                  {r.statusLabel}
+                </div>
               </div>
             </button>
           ))}
@@ -306,38 +357,31 @@ function MapView(props: {
         </div>
       ) : (
         <>
-          {/* Pulse for "you are here" */}
           <div className="absolute left-[55%] top-[58%] -translate-x-1/2 -translate-y-1/2 z-10">
             <div className="w-32 h-32 rounded-full bg-primary/20 blur-sm" />
             <div className="absolute inset-0 m-auto w-4 h-4 rounded-full bg-primary border-2 border-card" />
           </div>
 
-          {/* Pro pins */}
-          {pros.map((p) => {
+          {results.map((r) => {
+            const p = r.pro;
             const active = p.id === selectedId;
             return (
               <button
                 key={p.id}
-                onClick={() => onSelect(p.id)}
+                onClick={() => { onSelect(p.id); }}
+                onDoubleClick={() => props.onOpenProfile(p.id)}
                 className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
               >
-                <div
-                  className={`relative rounded-full p-0.5 transition ${
-                    active ? "bg-success scale-110" : "bg-card shadow-card group-hover:scale-105"
-                  }`}
-                >
+                <div className={`relative rounded-full p-0.5 transition ${
+                  active ? "bg-success scale-110" : "bg-card shadow-card group-hover:scale-105"
+                }`}>
                   <img src={p.avatar} className={`rounded-full object-cover ${active ? "w-16 h-16" : "w-12 h-12"}`} alt="" loading="lazy" />
-                  {active && (
-                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-success text-success-foreground px-2 py-0.5 rounded-full whitespace-nowrap">
-                      Maintenant
-                    </span>
-                  )}
-                  {!active && (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-foreground text-background px-1.5 py-0.5 rounded-full">
-                      {p.availability === "now" ? "Maintenant" : p.availability}
-                    </span>
-                  )}
+                  <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                    r.statusTone === "now" ? "bg-success text-success-foreground" : "bg-foreground text-background"
+                  }`}>
+                    {r.statusTone === "now" ? "Maintenant" : p.availability}
+                  </span>
                 </div>
               </button>
             );
@@ -345,19 +389,26 @@ function MapView(props: {
         </>
       )}
 
-      {/* Right side controls */}
+      {/* Big instant-request CTA */}
+      <button
+        onClick={props.onOpenRequest}
+        className="absolute left-4 bottom-6 z-10 bg-gradient-primary text-primary-foreground rounded-2xl shadow-glow px-5 py-3 flex items-center gap-2 hover:opacity-95 transition"
+      >
+        <Zap className="w-4 h-4" />
+        <div className="text-left leading-tight">
+          <div className="text-sm font-semibold">Envoyer une demande</div>
+          <div className="text-[11px] opacity-90">Le premier pro dispo vous prend</div>
+        </div>
+      </button>
+
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
-        <MiniBtn label="Ma position">📍</MiniBtn>
-        <MiniBtn label="Rayon 5 km">⊙</MiniBtn>
-        <MiniBtn label="Trafic">🛣️</MiniBtn>
+        <MiniBtn label="Position">📍</MiniBtn>
+        <MiniBtn label={`${5} km`}>⊙</MiniBtn>
       </div>
       <div className="absolute right-4 bottom-24 z-10 flex flex-col gap-1 bg-card border border-border rounded-xl shadow-card overflow-hidden">
         <button className="w-9 h-9 hover:bg-secondary text-lg">+</button>
         <button className="w-9 h-9 hover:bg-secondary text-lg border-t border-border">−</button>
       </div>
-      <button className="absolute right-4 bottom-6 z-10 w-12 h-12 rounded-full bg-gradient-primary shadow-glow flex items-center justify-center text-primary-foreground">
-        <Send className="w-5 h-5" />
-      </button>
     </div>
   );
 }
@@ -371,16 +422,35 @@ function MiniBtn({ children, label }: { children: React.ReactNode; label: string
   );
 }
 
-function BookingPanel(props: {
-  pro: Pro;
-  day: "today" | "tomorrow";
-  setDay: (d: "today" | "tomorrow") => void;
-  slot: string;
-  setSlot: (s: string) => void;
-  onBook: () => void;
-}) {
-  const { pro, day, setDay, slot, setSlot, onBook } = props;
+/* -------------------- Booking panel (right) -------------------- */
 
+function BookingPanel(props: {
+  result: MatchResult | null;
+  onOpenProfile: () => void;
+  onBook: (slotIso: string) => void;
+  onOpenRequest: () => void;
+}) {
+  const { result } = props;
+
+  if (!result) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-soft">
+        <Search className="w-10 h-10 text-muted-foreground" />
+        <h3 className="font-semibold mt-3">Aucun pro sélectionné</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Ajustez vos critères ou envoyez une demande directe.
+        </p>
+        <button
+          onClick={props.onOpenRequest}
+          className="mt-4 bg-gradient-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium shadow-glow flex items-center gap-2"
+        >
+          <Zap className="w-4 h-4" /> Demande instantanée
+        </button>
+      </div>
+    );
+  }
+
+  const pro = result.pro;
   return (
     <div className="bg-card border border-border rounded-3xl p-5 flex flex-col min-h-0 shadow-soft overflow-y-auto">
       <div className="flex gap-3">
@@ -388,139 +458,706 @@ function BookingPanel(props: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h3 className="font-semibold">{pro.name}</h3>
-            {pro.verified && <span className="text-primary text-sm">✓</span>}
+            {pro.verified && <ShieldCheck className="w-4 h-4 text-primary" />}
           </div>
           <div className="text-sm text-muted-foreground">{pro.job}</div>
           <div className="flex items-center gap-1.5 mt-1 text-xs">
             <Star className="w-3 h-3 fill-warning text-warning" />
             <span className="font-medium">{pro.rating.toFixed(1)}</span>
             <span className="text-muted-foreground">({pro.reviews} avis)</span>
+            <span className="text-muted-foreground">• {pro.distanceKm} km</span>
           </div>
-          {pro.availability === "now" && (
-            <div className="flex items-center gap-1 text-xs text-success font-medium mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" /> Disponible maintenant
-            </div>
-          )}
+          <div className={`flex items-center gap-1 text-xs font-medium mt-1 ${
+            result.statusTone === "now" ? "text-success" : "text-primary"
+          }`}>
+            <Clock className="w-3 h-3" /> {result.statusLabel}
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1"><HomeIcon className="w-3 h-3" /> À domicile</span>
-        <span>|</span>
-        <span className="flex items-center gap-1"><CreditCard className="w-3 h-3" /> Paiement sécurisé</span>
-        <span>|</span>
-        <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Pro certifiée</span>
+      <div className="flex flex-wrap gap-2 mt-3 text-[11px]">
+        {pro.modes.includes("home") && (
+          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><HomeIcon className="w-3 h-3" /> À domicile</span>
+        )}
+        {pro.modes.includes("studio") && (
+          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><Building2 className="w-3 h-3" /> Studio</span>
+        )}
+        {pro.modes.includes("video") && (
+          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><Video className="w-3 h-3" /> Visio</span>
+        )}
+        <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><CreditCard className="w-3 h-3" /> Paiement sécurisé</span>
       </div>
 
       <div className="mt-4 text-sm">
         <div className="font-semibold">{pro.specialty}</div>
         <p className="text-muted-foreground text-xs mt-1 leading-relaxed">{pro.bio}</p>
+        <p className="text-[11px] text-muted-foreground mt-1">{pro.experience} ans d'expérience</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mt-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="aspect-square rounded-xl bg-gradient-soft border border-border" />
-        ))}
-        <div className="aspect-square rounded-xl bg-foreground/80 text-background flex items-center justify-center font-semibold text-sm">
-          +12
+      <div className="mt-4">
+        <div className="text-sm font-semibold mb-2">Prestations populaires</div>
+        <div className="space-y-1.5">
+          {pro.services.slice(0, 3).map((s) => (
+            <div key={s.id} className="flex items-center justify-between text-sm">
+              <span>{s.name} <span className="text-muted-foreground text-xs">· {s.duration} min</span></span>
+              <span className="font-medium">{s.price} €</span>
+            </div>
+          ))}
         </div>
       </div>
-
-      <button className="mt-3 text-xs font-medium text-primary hover:underline">
-        Voir le profil complet
-      </button>
 
       <div className="mt-5">
-        <div className="text-sm font-semibold">Prochaines disponibilités</div>
-        <div className="flex gap-4 mt-2 border-b border-border">
-          {([{ k: "today" as const, l: "Aujourd'hui" }, { k: "tomorrow" as const, l: "Demain" }]).map((d) => (
+        <div className="text-sm font-semibold mb-2">Prochaines disponibilités</div>
+        <div className="grid grid-cols-3 gap-2">
+          {result.nextSlots.slice(0, 6).map((s) => (
             <button
-              key={d.k}
-              onClick={() => setDay(d.k)}
-              className={`pb-2 text-sm font-medium relative ${day === d.k ? "text-primary" : "text-muted-foreground"}`}
+              key={s.iso}
+              onClick={() => props.onBook(s.iso)}
+              className="py-2 rounded-xl text-xs font-medium border border-border hover:border-primary hover:bg-accent/40 transition"
             >
-              {d.l}
-              {day === d.k && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+              {s.label}
             </button>
           ))}
         </div>
+      </div>
 
-        {pro.availability === "now" && (
+      <div className="mt-auto pt-5 space-y-2">
+        <button
+          onClick={() => props.onBook(result.nextSlots[0]?.iso ?? "")}
+          className="w-full bg-gradient-primary text-primary-foreground font-semibold rounded-2xl py-3.5 shadow-glow hover:opacity-95 transition"
+        >
+          Réserver dès {pro.price} €
+        </button>
+        <button
+          onClick={props.onOpenProfile}
+          className="w-full border border-border rounded-2xl py-2.5 text-sm font-medium hover:bg-secondary transition"
+        >
+          Voir le profil complet
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------- Profile Sheet -------------------- */
+
+function ProfileSheet(props: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  result: MatchResult | null;
+  favorites: string[];
+  onFav: (id: string) => void;
+  onBook: (service: Service, slotIso: string) => void;
+}) {
+  const { result } = props;
+  const navigate = useNavigate();
+  const sendMessage = useBooker((s) => s.sendMessage);
+  const [serviceId, setServiceId] = useState<string | null>(null);
+  const [slotIso, setSlotIso] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("home");
+
+  useEffect(() => {
+    if (result) {
+      setServiceId(result.pro.services[0]?.id ?? null);
+      setSlotIso(result.nextSlots[0]?.iso ?? null);
+      setMode(result.pro.modes[0]);
+    }
+  }, [result?.pro.id]);
+
+  if (!result) return null;
+  const pro = result.pro;
+  const service = pro.services.find((s) => s.id === serviceId) ?? pro.services[0];
+  const fav = props.favorites.includes(pro.id);
+
+  return (
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto p-0">
+        <div className="relative h-40 bg-gradient-primary">
+          <div className="absolute -bottom-12 left-6">
+            <img src={pro.avatar} alt={pro.name} className="w-24 h-24 rounded-full border-4 border-card object-cover shadow-card" />
+          </div>
           <button
-            onClick={() => setSlot("now")}
-            className={`mt-3 w-full flex items-center justify-between px-3 py-2 rounded-xl border ${
-              slot === "now" ? "border-primary bg-accent/50" : "border-border hover:bg-secondary"
-            }`}
+            onClick={() => props.onFav(pro.id)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-card/90 backdrop-blur flex items-center justify-center hover:bg-card"
+            aria-label="Favori"
           >
-            <span className="text-sm font-semibold text-success">Maintenant</span>
-            <span className="text-xs text-muted-foreground">Arrivée : 10-20 min</span>
+            <Heart className={`w-5 h-5 ${fav ? "fill-primary text-primary" : "text-muted-foreground"}`} />
           </button>
+        </div>
+
+        <div className="pt-14 px-6 pb-6">
+          <SheetHeader className="p-0 text-left">
+            <SheetTitle className="flex items-center gap-2 text-2xl">
+              {pro.name}
+              {pro.verified && <ShieldCheck className="w-5 h-5 text-primary" />}
+            </SheetTitle>
+            <div className="text-muted-foreground">{pro.job}</div>
+          </SheetHeader>
+
+          <div className="flex items-center gap-3 mt-2 text-sm">
+            <span className="flex items-center gap-1"><Star className="w-4 h-4 fill-warning text-warning" />{pro.rating.toFixed(1)}</span>
+            <span className="text-muted-foreground">({pro.reviews} avis)</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{pro.distanceKm} km</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{pro.experience} ans d'exp.</span>
+          </div>
+
+          <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
+            result.statusTone === "now" ? "bg-success/10 text-success" : "bg-accent text-accent-foreground"
+          }`}>
+            <Clock className="w-4 h-4" /> {result.statusLabel}
+          </div>
+
+          <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{pro.bio}</p>
+
+          <div className="mt-6">
+            <div className="text-sm font-semibold mb-2">Mode de prestation</div>
+            <div className="flex gap-2">
+              {pro.modes.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-2 rounded-xl border text-sm flex items-center gap-1.5 ${
+                    mode === m ? "border-primary bg-accent" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  {m === "home" && <><HomeIcon className="w-4 h-4" /> À domicile</>}
+                  {m === "studio" && <><Building2 className="w-4 h-4" /> Studio</>}
+                  {m === "video" && <><Video className="w-4 h-4" /> Visio</>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="text-sm font-semibold mb-2">Choisir une prestation</div>
+            <div className="space-y-2">
+              {pro.services.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setServiceId(s.id)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${
+                    serviceId === s.id ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  <div>
+                    <div className="font-medium text-sm">{s.name}</div>
+                    <div className="text-xs text-muted-foreground">{s.duration} min</div>
+                  </div>
+                  <div className="font-semibold">{s.price} €</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="text-sm font-semibold mb-2">Prochaines disponibilités</div>
+            <div className="grid grid-cols-3 gap-2">
+              {result.nextSlots.map((s) => (
+                <button
+                  key={s.iso}
+                  onClick={() => setSlotIso(s.iso)}
+                  className={`py-2 rounded-xl text-xs font-medium border ${
+                    slotIso === s.iso ? "border-primary bg-accent text-primary" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-[1fr_auto] gap-2 sticky bottom-0 bg-card pt-3">
+            <button
+              onClick={() => service && slotIso && props.onBook(service, slotIso)}
+              disabled={!service || !slotIso}
+              className="bg-gradient-primary text-primary-foreground font-semibold rounded-2xl py-3 shadow-glow disabled:opacity-50"
+            >
+              Réserver — {service?.price ?? pro.price} €
+            </button>
+            <button
+              onClick={() => {
+                sendMessage(pro.id, "Bonjour, je souhaiterais en savoir plus sur vos prestations.");
+                toast.success(`Message envoyé à ${pro.name.split(" ")[0]}`);
+                navigate({ to: "/messages" });
+              }}
+              className="w-12 h-12 rounded-2xl border border-border flex items-center justify-center hover:bg-secondary"
+              aria-label="Message"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/* -------------------- Booking Dialog (3 steps) -------------------- */
+
+function BookingDialog({
+  state,
+  onClose,
+}: {
+  state: { pro: Pro; service?: Service; slotIso?: string } | null;
+  onClose: () => void;
+}) {
+  const addBooking = useBooker((s) => s.addBooking);
+  const navigate = useNavigate();
+  const pushNotification = useBooker((s) => s.pushNotification);
+  const [step, setStep] = useState(1);
+  const [serviceId, setServiceId] = useState<string | undefined>(undefined);
+  const [slotIso, setSlotIso] = useState<string | undefined>(undefined);
+  const [mode, setMode] = useState<Mode>("home");
+
+  useEffect(() => {
+    if (state) {
+      setStep(1);
+      setServiceId(state.service?.id ?? state.pro.services[0].id);
+      setSlotIso(state.slotIso);
+      setMode(state.pro.modes[0]);
+    }
+  }, [state?.pro.id, state?.service?.id, state?.slotIso]);
+
+  if (!state) return null;
+  const pro = state.pro;
+  const service = pro.services.find((s) => s.id === serviceId) ?? pro.services[0];
+  const slots = useBookerSlots(pro.id);
+  const slot = slots.find((s) => s.iso === slotIso) ?? slots[0];
+
+  const serviceFee = Math.round(service.price * 0.05);
+  const total = service.price + serviceFee;
+
+  function confirm() {
+    addBooking({
+      proId: pro.id,
+      serviceId: service.id,
+      serviceName: service.name,
+      mode,
+      date: slot?.iso.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      time: slot?.label ?? "—",
+      price: total,
+    });
+    pushNotification({
+      title: `Réservation confirmée avec ${pro.name.split(" ")[0]}`,
+      body: `${service.name} — ${slot?.label}`,
+    });
+    toast.success("Réservation confirmée !", {
+      description: `${pro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
+    });
+    onClose();
+    navigate({ to: "/reservations" });
+  }
+
+  return (
+    <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        <div className="bg-gradient-soft px-6 py-5 border-b border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <img src={pro.avatar} className="w-10 h-10 rounded-full object-cover" alt="" />
+              <div>
+                <div>Réserver avec {pro.name.split(" ")[0]}</div>
+                <div className="text-xs font-normal text-muted-foreground">{pro.job}</div>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="sr-only">Tunnel de réservation en 3 étapes</DialogDescription>
+          </DialogHeader>
+          <Stepper step={step} total={3} />
+        </div>
+
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
+          {step === 1 && (
+            <div>
+              <div className="text-sm font-semibold mb-2">Prestation</div>
+              <div className="space-y-2">
+                {pro.services.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setServiceId(s.id)}
+                    className={`w-full flex justify-between items-center p-3 rounded-xl border text-left ${
+                      serviceId === s.id ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{s.name}</div>
+                      <div className="text-xs text-muted-foreground">{s.duration} min</div>
+                    </div>
+                    <div className="font-semibold">{s.price} €</div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-sm font-semibold mt-5 mb-2">Mode</div>
+              <div className="flex gap-2">
+                {pro.modes.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`px-3 py-2 rounded-xl border text-sm flex items-center gap-1.5 ${
+                      mode === m ? "border-primary bg-accent" : "border-border"
+                    }`}
+                  >
+                    {m === "home" ? "À domicile" : m === "studio" ? "Studio" : "Visio"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <div className="text-sm font-semibold mb-2">Choisir un créneau</div>
+              <div className="grid grid-cols-3 gap-2">
+                {slots.map((s) => (
+                  <button
+                    key={s.iso}
+                    onClick={() => setSlotIso(s.iso)}
+                    className={`py-2 rounded-xl text-xs font-medium border ${
+                      slotIso === s.iso ? "border-primary bg-accent text-primary" : "border-border hover:bg-secondary"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <div className="text-sm font-semibold mb-3">Récapitulatif</div>
+              <div className="rounded-2xl border border-border divide-y divide-border text-sm">
+                <Row label="Pro" value={pro.name} />
+                <Row label="Prestation" value={`${service.name} (${service.duration} min)`} />
+                <Row label="Créneau" value={slot?.label ?? "—"} />
+                <Row label="Mode" value={mode === "home" ? "À domicile" : mode === "studio" ? "Studio" : "Visio"} />
+                <Row label="Prix prestation" value={`${service.price} €`} />
+                <Row label="Frais de service" value={`${serviceFee} €`} />
+                <Row label="Total" value={`${total} €`} bold />
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Paiement sécurisé à la réservation. Annulation gratuite jusqu'à 4 h avant.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border flex justify-between gap-2">
+          {step > 1 ? (
+            <button onClick={() => setStep(step - 1)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-secondary">
+              Retour
+            </button>
+          ) : <span />}
+          {step < 3 ? (
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={step === 2 && !slotIso}
+              className="flex-1 bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-glow flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              Continuer <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={confirm}
+              className="flex-1 bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-glow flex items-center justify-center gap-2"
+            >
+              <Check className="w-4 h-4" /> Confirmer — {total} €
+            </button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function useBookerSlots(proId: string) {
+  return useMemo(() => {
+    const pro = getPro(proId);
+    return matchPros({ query: "", when: { kind: "now" }, maxKm: 99, atHome: false })
+      .find((r) => r.pro.id === pro.id)?.nextSlots ?? [];
+  }, [proId]);
+}
+
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex justify-between px-4 py-2.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={bold ? "font-semibold text-base" : "font-medium"}>{value}</span>
+    </div>
+  );
+}
+
+function Stepper({ step, total }: { step: number; total: number }) {
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      {Array.from({ length: total }).map((_, i) => {
+        const n = i + 1;
+        const done = n < step;
+        const active = n === step;
+        return (
+          <div key={n} className="flex items-center gap-2 flex-1">
+            <div className={`w-6 h-6 rounded-full text-xs font-semibold flex items-center justify-center ${
+              done ? "bg-success text-success-foreground" :
+              active ? "bg-primary text-primary-foreground" :
+              "bg-secondary text-muted-foreground"
+            }`}>
+              {done ? <Check className="w-3.5 h-3.5" /> : n}
+            </div>
+            {n < total && <div className={`flex-1 h-0.5 ${n < step ? "bg-success" : "bg-border"}`} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------- Instant Request Dialog -------------------- */
+
+function InstantRequestDialog(props: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  defaultLocation: string;
+  defaultCategory?: string;
+}) {
+  const createRequest = useBooker((s) => s.createRequest);
+  const matchRequest = useBooker((s) => s.matchRequest);
+  const addBooking = useBooker((s) => s.addBooking);
+  const pushNotification = useBooker((s) => s.pushNotification);
+  const navigate = useNavigate();
+
+  const [category, setCategory] = useState(props.defaultCategory ?? "Coiffure");
+  const [serviceName, setServiceName] = useState("");
+  const [location, setLocation] = useState(props.defaultLocation);
+  const [time, setTime] = useState("Aujourd'hui 14h00");
+  const [budget, setBudget] = useState(50);
+  const [atHome, setAtHome] = useState(true);
+  const [comment, setComment] = useState("");
+  const [phase, setPhase] = useState<"form" | "waiting" | "matched">("form");
+  const [matched, setMatched] = useState<{ proId: string; serviceName: string; time: string; price: number } | null>(null);
+
+  useEffect(() => {
+    if (props.open) {
+      setPhase("form");
+      setMatched(null);
+      setCategory(props.defaultCategory ?? "Coiffure");
+      setLocation(props.defaultLocation);
+    }
+  }, [props.open]);
+
+  function submit() {
+    const eligibles = findEligibleProsForRequest({ category, budget, atHome });
+    if (eligibles.length === 0) {
+      toast.error("Aucun pro éligible pour cette demande");
+      return;
+    }
+    const req = createRequest({
+      category,
+      serviceName: serviceName || category,
+      location,
+      when: time,
+      budget,
+      comment,
+    });
+    setPhase("waiting");
+
+    // Simulate the first eligible pro accepting after a short delay
+    const winner = eligibles.sort((a, b) => a.distanceKm - b.distanceKm)[0];
+    setTimeout(() => {
+      matchRequest(req.id, winner.id);
+      const finalPrice = Math.min(budget, winner.price);
+      addBooking({
+        proId: winner.id,
+        serviceName: serviceName || category,
+        date: new Date().toISOString().slice(0, 10),
+        time,
+        price: finalPrice,
+        mode: atHome ? "home" : winner.modes[0],
+      });
+      pushNotification({
+        title: `${winner.name.split(" ")[0]} a accepté votre demande`,
+        body: `${serviceName || category} — ${time}`,
+      });
+      setMatched({ proId: winner.id, serviceName: serviceName || category, time, price: finalPrice });
+      setPhase("matched");
+    }, 3500);
+  }
+
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        <div className="bg-gradient-primary p-5 text-primary-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-primary-foreground flex items-center gap-2">
+              <Zap className="w-5 h-5" /> Demande instantanée
+            </DialogTitle>
+            <DialogDescription className="text-primary-foreground/80">
+              On envoie votre demande à tous les pros compatibles. Le premier qui accepte la prend.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        {phase === "form" && (
+          <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+            <Field label="Catégorie">
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${
+                      category === c ? "border-primary bg-accent text-primary" : "border-border hover:bg-secondary"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Prestation souhaitée">
+              <input value={serviceName} onChange={(e) => setServiceName(e.target.value)} placeholder="Ex: Brushing, massage suédois…"
+                className="w-full h-11 px-3 rounded-xl border border-border bg-secondary outline-none focus:border-primary text-sm" />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Lieu">
+                <input value={location} onChange={(e) => setLocation(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl border border-border bg-secondary outline-none focus:border-primary text-sm" />
+              </Field>
+              <Field label="Quand">
+                <input value={time} onChange={(e) => setTime(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl border border-border bg-secondary outline-none focus:border-primary text-sm" />
+              </Field>
+            </div>
+            <Field label={`Budget max : ${budget} €`}>
+              <input type="range" min={20} max={200} step={5} value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))} className="w-full accent-primary" />
+            </Field>
+            <Field label="Mode">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={atHome} onChange={(e) => setAtHome(e.target.checked)} className="accent-primary" />
+                À mon domicile
+              </label>
+            </Field>
+            <Field label="Commentaire (optionnel)">
+              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2}
+                className="w-full px-3 py-2 rounded-xl border border-border bg-secondary outline-none focus:border-primary text-sm" />
+            </Field>
+
+            <button onClick={submit}
+              className="w-full bg-gradient-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold shadow-glow flex items-center justify-center gap-2">
+              <Zap className="w-4 h-4" /> Envoyer ma demande
+            </button>
+          </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 mt-2">
-          {SLOTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSlot(s)}
-              className={`py-2 rounded-xl text-sm font-medium border transition ${
-                slot === s
-                  ? "border-primary bg-accent/50 text-primary"
-                  : "border-border hover:bg-secondary"
-              }`}
-            >
-              {s}
+        {phase === "waiting" && (
+          <div className="p-8 text-center">
+            <div className="relative w-20 h-20 mx-auto">
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+              <div className="relative w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            </div>
+            <h3 className="font-semibold text-lg mt-5">Recherche en cours…</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              On a notifié {findEligibleProsForRequest({ category, budget, atHome }).length} pros compatibles autour de vous.
+            </p>
+          </div>
+        )}
+
+        {phase === "matched" && matched && (
+          <div className="p-8 text-center">
+            <div className="relative w-20 h-20 mx-auto rounded-full bg-success/15 flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-success" />
+            </div>
+            <h3 className="font-semibold text-lg mt-4">Pro trouvé !</h3>
+            <div className="flex items-center gap-3 mt-4 p-3 rounded-2xl bg-secondary text-left">
+              <img src={getPro(matched.proId).avatar} className="w-12 h-12 rounded-full object-cover" alt="" />
+              <div>
+                <div className="font-semibold text-sm">{getPro(matched.proId).name}</div>
+                <div className="text-xs text-muted-foreground">{matched.serviceName} · {matched.time}</div>
+              </div>
+              <div className="ml-auto font-semibold">{matched.price} €</div>
+            </div>
+            <button onClick={() => { props.onOpenChange(false); navigate({ to: "/reservations" }); }}
+              className="mt-5 w-full bg-gradient-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold shadow-glow">
+              Voir ma réservation
             </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">Total</span>
-        <span className="text-2xl font-semibold">{pro.price} €</span>
-      </div>
-
-      <button
-        onClick={onBook}
-        className="mt-3 w-full bg-gradient-primary text-primary-foreground font-semibold rounded-2xl py-3.5 shadow-glow hover:opacity-95 transition"
-      >
-        Continuer
-      </button>
-    </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function ConfirmationModal({ pro, time, onClose }: { pro: Pro; time: string; onClose: () => void }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl p-8 max-w-sm w-full text-center shadow-card relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
-          <X className="w-5 h-5" />
-        </button>
-        <div className="relative w-20 h-20 mx-auto rounded-full bg-accent flex items-center justify-center">
-          <CheckCircle2 className="w-10 h-10 text-primary" />
-        </div>
-        <h3 className="text-xl font-semibold mt-4">Réservation confirmée !</h3>
-        <p className="text-success font-medium mt-2 text-sm">
-          {pro.name.split(" ")[0]} {time === "Maintenant" ? "arrive dans 12 min" : `vous attend à ${time}`}
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Vous allez recevoir une notification quand {time === "Maintenant" ? "elle sera en route." : "le créneau approchera."}
-        </p>
-        <div className="space-y-2 mt-5">
-          <button onClick={onClose} className="w-full bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-medium shadow-glow">
-            Voir mes réservations
-          </button>
-          <button className="w-full border border-border rounded-xl py-2.5 text-sm font-medium hover:bg-secondary flex items-center justify-center gap-2">
-            <MessageCircle className="w-4 h-4" /> Contacter {pro.name.split(" ")[0]}
-          </button>
-        </div>
-      </div>
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</div>
+      {children}
     </div>
   );
 }
+
+/* -------------------- Filters Dialog -------------------- */
+
+function FiltersDialog(props: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  filters: { categories: string[]; atHome: boolean; maxKm: number };
+  onToggle: (c: string) => void;
+  onSetFilters: (f: Partial<{ atHome: boolean; maxKm: number }>) => void;
+}) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Filtres</DialogTitle>
+          <DialogDescription>Affinez votre recherche de pros.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5">
+          <Field label="Catégories">
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((c) => {
+                const active = props.filters.categories.includes(c);
+                return (
+                  <button key={c} onClick={() => props.onToggle(c)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${
+                      active ? "border-primary bg-accent text-primary" : "border-border hover:bg-secondary"
+                    }`}>{c}</button>
+                );
+              })}
+            </div>
+          </Field>
+          <Field label={`Rayon max : ${props.filters.maxKm} km`}>
+            <input type="range" min={1} max={20} value={props.filters.maxKm}
+              onChange={(e) => props.onSetFilters({ maxKm: Number(e.target.value) })}
+              className="w-full accent-primary" />
+          </Field>
+          <Field label="Mode">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={props.filters.atHome}
+                onChange={(e) => props.onSetFilters({ atHome: e.target.checked })}
+                className="accent-primary" />
+              Uniquement à domicile
+            </label>
+          </Field>
+          <button onClick={() => props.onOpenChange(false)}
+            className="w-full bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-glow">
+            Appliquer
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* -------------------- AI assistant -------------------- */
 
 function AIAssistant({ onClose, onPick }: { onClose: () => void; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
+  const setSearchQuery = useBooker((s) => s.setSearchQuery);
   const suggestions = [
     { q: "Un coiffeur près de moi maintenant", pick: "camille" },
     { q: "Un massage cet après-midi", pick: "nicolas" },
@@ -543,8 +1180,12 @@ function AIAssistant({ onClose, onPick }: { onClose: () => void; onPick: (id: st
             </button>
           ))}
           <div className="relative">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Posez votre question..." className="w-full h-11 pl-4 pr-12 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary" />
-            <button className="absolute right-1.5 top-1.5 w-8 h-8 rounded-lg bg-gradient-primary text-primary-foreground flex items-center justify-center">
+            <input value={q} onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && q) { setSearchQuery(q); onClose(); } }}
+              placeholder="Posez votre question..."
+              className="w-full h-11 pl-4 pr-12 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary" />
+            <button onClick={() => { setSearchQuery(q); onClose(); }}
+              className="absolute right-1.5 top-1.5 w-8 h-8 rounded-lg bg-gradient-primary text-primary-foreground flex items-center justify-center">
               <Send className="w-4 h-4" />
             </button>
           </div>
