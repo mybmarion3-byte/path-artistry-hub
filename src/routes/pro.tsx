@@ -18,13 +18,13 @@ export const Route = createFileRoute("/pro")({
   component: ProDashboard,
 });
 
-const TODAY_AGENDA = [
-  { time: "09:00", client: "Sophie L.", service: "Brushing", location: "Paris 17e", duration: 45, price: 45, status: "done" as const },
-  { time: "10:30", client: "Anna R.", service: "Coupe + brushing", location: "Levallois", duration: 60, price: 55, status: "done" as const },
-  { time: "12:00", client: "Pause déjeuner", service: "", location: "", duration: 60, price: 0, status: "break" as const },
-  { time: "14:00", client: "Marion D.", service: "Couleur", location: "Paris 17e", duration: 90, price: 80, status: "next" as const },
-  { time: "16:00", client: "Camille T.", service: "Balayage", location: "Clichy", duration: 120, price: 120, status: "upcoming" as const },
-];
+function fmtHour(h: number) {
+  const hh = Math.floor(h);
+  const mm = (h - hh) * 60;
+  return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
+}
+
+
 
 function ProDashboard() {
   const proIdentityId = useBooker((s) => s.proIdentityId);
