@@ -37,7 +37,11 @@ export function Sidebar() {
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
-  const unread = useBooker((s) => s.messages.filter((m) => m.from === "pro").length);
+  const unread = useBooker((s) =>
+    s.role === "client"
+      ? s.messages.filter((m) => m.from === "pro").length
+      : s.proMessages.filter((m) => m.from === "client").length,
+  );
   const inboxCount = useBooker((s) => s.proInbox.filter((r) => r.status === "pending").length);
 
   const isClient = role === "client";
