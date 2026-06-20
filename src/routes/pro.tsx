@@ -35,15 +35,33 @@ function ProDashboard() {
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
   const pushNotification = useBooker((s) => s.pushNotification);
+  const agenda = useBooker((s) => s.proAgenda);
+  const addAgenda = useBooker((s) => s.addAgendaSlot);
+
+  const today = agenda.filter((a) => a.day === 0).sort((a, b) => a.hour - b.hour);
+  const nowHour = new Date().getHours();
+  const todayWithStatus = today.map((a) => ({
+    ...a,
+    status: a.hour + a.dur <= nowHour ? "done" : a.hour <= nowHour + 1 ? "next" : "upcoming",
+  })) as Array<(typeof today)[number] & { status: "done" | "next" | "upcoming" }>;
 
   const pending = proInbox.filter((r) => r.status === "pending");
-  const todayRevenue = TODAY_AGENDA.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
-  const dayTotal = TODAY_AGENDA.filter((a) => a.status !== "break").reduce((s, a) => s + a.price, 0);
+  const todayRevenue = todayWithStatus.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
+  const dayTotal = todayWithStatus.reduce((s, a) => s + a.price, 0);
 
   function handleAccept(id: string) {
     const req = proInbox.find((r) => r.id === id);
     if (!req) return;
     accept(id);
+    addAgenda({
+      day: req.when.toLowerCase().startsWith("demain") ? 1 : 0,
+      hour: 17,
+      dur: 1,
+      label: `${req.serviceName} · ${req.clientName.split(" ")[0]}`,
+      clientName: req.clientName,
+      serviceName: req.serviceName,
+      price: req.price,
+    });
     pushNotification({ title: "Demande acceptée", body: `${req.serviceName} — ${req.clientName}` });
     toast.success(`Demande de ${req.clientName} acceptée`);
   }
@@ -52,6 +70,13 @@ function ProDashboard() {
     decline(id);
     toast("Demande déclinée");
   }
+
+  function toggleVisibility() {
+    const next = !proVisible;
+    setProVisible(next);
+    toast(next ? "Vous êtes visible · disponible maintenant" : "Visibilité désactivée");
+  }
+
 
   return (
     <AppLayout>
