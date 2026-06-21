@@ -165,6 +165,76 @@ export const PROS: Pro[] = [
   },
 ];
 
+/* -------------------- Establishments & client addresses -------------------- */
+
+export type BusinessLocation = {
+  id: string;
+  name: string;
+  emoji: string;
+  gradient: string; // tailwind gradient classes for the placeholder photo
+  address: string;
+  distanceKm: number;
+  nextSlot: string;
+  proIds: string[];
+};
+
+export const BUSINESSES: BusinessLocation[] = [
+  {
+    id: "b1",
+    name: "Salon Paris 17",
+    emoji: "💇",
+    gradient: "from-violet-400 via-fuchsia-400 to-rose-400",
+    address: "12 rue de Lévis, 75017 Paris",
+    distanceKm: 0.6,
+    nextSlot: "Aujourd'hui 14:30",
+    proIds: ["camille", "julie", "laura"],
+  },
+  {
+    id: "b2",
+    name: "Salon Boulogne",
+    emoji: "✂️",
+    gradient: "from-rose-400 via-orange-400 to-amber-400",
+    address: "8 av. Edouard Vaillant, 92100 Boulogne",
+    distanceKm: 3.4,
+    nextSlot: "Aujourd'hui 16:00",
+    proIds: ["camille", "nicolas"],
+  },
+  {
+    id: "b3",
+    name: "Coworking Opéra",
+    emoji: "🏢",
+    gradient: "from-sky-400 via-cyan-400 to-emerald-400",
+    address: "15 rue Auber, 75009 Paris",
+    distanceKm: 2.1,
+    nextSlot: "Demain 09:00",
+    proIds: ["thomas", "nicolas", "laura"],
+  },
+];
+
+export function getBusinessesForPro(proId: string): BusinessLocation[] {
+  return BUSINESSES.filter((b) => b.proIds.includes(proId));
+}
+
+export function getProsForBusiness(businessId: string): Pro[] {
+  const biz = BUSINESSES.find((b) => b.id === businessId);
+  if (!biz) return [];
+  return biz.proIds.map((id) => getPro(id));
+}
+
+export type ClientAddress = {
+  id: string;
+  label: string;
+  kind: "home" | "hotel" | "office" | "custom";
+  address: string;
+};
+
+export const DEFAULT_ADDRESSES: ClientAddress[] = [
+  { id: "a1", label: "Domicile", kind: "home", address: "24 rue de Tocqueville, 75017 Paris" },
+  { id: "a2", label: "Hôtel Le Meurice", kind: "hotel", address: "228 rue de Rivoli, 75001 Paris" },
+  { id: "a3", label: "Bureau La Défense", kind: "office", address: "Tour First, 92800 Puteaux" },
+];
+
+
 export type Booking = {
   id: string;
   proId: string;
