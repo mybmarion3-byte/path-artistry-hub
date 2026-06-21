@@ -565,28 +565,22 @@ function BookingPanel(props: {
 
       <div className="mt-5">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Mode de prestation</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${pro.modes.length === 1 ? "grid-cols-1" : pro.modes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
           {([
-            { m: "home" as const, label: "À domicile", icon: HomeIcon, emoji: "🏠" },
-            { m: "studio" as const, label: "Établissement", icon: Building2, emoji: "🏢" },
-            { m: "video" as const, label: "Visio", icon: Video, emoji: "💻" },
-          ]).map((opt) => {
-            const enabled = pro.modes.includes(opt.m);
-            return (
-              <button
+            { m: "home" as const, label: "À domicile", emoji: "🏠" },
+            { m: "studio" as const, label: "Établissement", emoji: "🏢" },
+            { m: "video" as const, label: "Visio", emoji: "💻" },
+          ])
+            .filter((opt) => pro.modes.includes(opt.m))
+            .map((opt) => (
+              <div
                 key={opt.m}
-                disabled={!enabled}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-2xl border text-[11px] font-medium transition ${
-                  enabled
-                    ? "border-border bg-card hover:border-primary/40 hover:bg-accent/30"
-                    : "border-border/50 bg-secondary/40 text-muted-foreground/60 cursor-not-allowed"
-                }`}
+                className="flex flex-col items-center gap-1 py-2.5 rounded-2xl border border-border bg-card text-[11px] font-medium"
               >
                 <span className="text-base leading-none">{opt.emoji}</span>
                 <span>{opt.label}</span>
-              </button>
-            );
-          })}
+              </div>
+            ))}
         </div>
       </div>
 
