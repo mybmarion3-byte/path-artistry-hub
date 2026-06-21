@@ -236,7 +236,7 @@ function ProListColumn(props: {
           const p = r.pro;
           const active = p.id === selectedProId;
           const fav = favorites.includes(p.id);
-          const etaMin = Math.max(8, Math.round(p.distanceKm * 6 + 6));
+          const etaMin = liveEta(p);
           const isNow = r.statusTone === "now";
           return (
             <div
