@@ -1385,16 +1385,34 @@ function StepInfo({
   mode: Mode; phone: string; digicode: string; comments: string;
   onPhone: (v: string) => void; onDigicode: (v: string) => void; onComments: (v: string) => void;
 }) {
+  const digicodeRef = useRef<HTMLInputElement>(null);
+  const phoneMissing = !ACCOUNT_PROFILE.phone;
+  const digicodeMissing = mode === "home" && !HAS_DIGICODE;
+  const anyMissing = phoneMissing || digicodeMissing;
+
+  useEffect(() => {
+    // Bascule automatique sur le premier champ à compléter
+    if (digicodeMissing && !digicode) digicodeRef.current?.focus();
+  }, [digicodeMissing, digicode]);
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-semibold">Informations complémentaires</div>
-        <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex items-center gap-1">
-          <Check className="w-3 h-3" /> Pré-rempli depuis votre compte
-        </span>
+        {anyMissing ? (
+          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> À compléter
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+            <Check className="w-3 h-3" /> Pré-rempli depuis votre compte
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Bonjour {ACCOUNT_PROFILE.firstName}, vérifiez ou modifiez si besoin.
+        {anyMissing
+          ? `Bonjour ${ACCOUNT_PROFILE.firstName}, il manque quelques infos pour ce rendez-vous.`
+          : `Bonjour ${ACCOUNT_PROFILE.firstName}, vérifiez ou modifiez si besoin.`}
       </p>
       <label className="block">
         <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
@@ -1411,13 +1429,16 @@ function StepInfo({
       {mode === "home" && (
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
-            <Lock className="w-3.5 h-3.5" /> Digicode (optionnel)
+            <Lock className="w-3.5 h-3.5" /> Digicode {digicodeMissing && !digicode ? <span className="text-amber-700">· à renseigner</span> : "(optionnel)"}
           </span>
           <input
+            ref={digicodeRef}
             value={digicode}
             onChange={(e) => onDigicode(e.target.value)}
             placeholder="Ex : 1234A · 3e étage gauche"
-            className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
+            className={`w-full h-11 px-4 rounded-xl border bg-secondary text-sm outline-none focus:border-primary ${
+              digicodeMissing && !digicode ? "border-amber-300 ring-2 ring-amber-100" : "border-border"
+            }`}
           />
         </label>
       )}
