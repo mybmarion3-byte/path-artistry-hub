@@ -372,6 +372,8 @@ function MapView(props: {
           {results.map((r) => {
             const p = r.pro;
             const active = p.id === selectedId;
+            const etaMin = Math.max(8, Math.round(p.distanceKm * 6 + 6));
+            const isNow = r.statusTone === "now";
             return (
               <button
                 key={p.id}
@@ -380,16 +382,29 @@ function MapView(props: {
                 className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
               >
+                {active && (
+                  <>
+                    <span className="absolute inset-0 -m-4 rounded-full bg-emerald-400/30 blur-xl animate-pulse" />
+                    <span className="absolute inset-0 -m-2 rounded-full ring-4 ring-emerald-400/40" />
+                  </>
+                )}
                 <div className={`relative rounded-full p-0.5 transition ${
-                  active ? "bg-success scale-110" : "bg-card shadow-card group-hover:scale-105"
+                  active ? "bg-emerald-500 scale-110 shadow-[0_0_24px_rgba(16,185,129,0.6)]" : "bg-card shadow-card group-hover:scale-105"
                 }`}>
                   <img src={p.avatar} className={`rounded-full object-cover ${active ? "w-16 h-16" : "w-12 h-12"}`} alt="" loading="lazy" />
-                  <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                    r.statusTone === "now" ? "bg-success text-success-foreground" : "bg-foreground text-background"
-                  }`}>
-                    {r.statusTone === "now" ? "Maintenant" : p.availability}
-                  </span>
                 </div>
+                {active && isNow ? (
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-emerald-500 text-white rounded-xl px-2.5 py-1 shadow-lg whitespace-nowrap text-center">
+                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"><Zap className="w-3 h-3 fill-white" /> Disponible</div>
+                    <div className="text-[10px] opacity-95">Chez vous dans {etaMin} min</div>
+                  </div>
+                ) : (
+                  <span className={`absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm ${
+                    isNow ? "bg-emerald-500 text-white" : "bg-card text-foreground border border-border"
+                  }`}>
+                    {isNow ? `${etaMin} min` : p.availability}
+                  </span>
+                )}
               </button>
             );
           })}
