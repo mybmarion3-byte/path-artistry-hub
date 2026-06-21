@@ -1,10 +1,17 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   Home, CalendarCheck, MessageSquare, Heart, CreditCard, Star, Calendar,
   BarChart3, Settings, Sparkles, ArrowRight, LayoutDashboard, Inbox,
   Users, Scissors, Wallet, MapPin, UserCircle, Briefcase,
 } from "lucide-react";
 import { useBooker } from "@/lib/booker-store";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ClientPath = "/" | "/reservations" | "/messages" | "/favoris" | "/paiements" | "/avis" | "/calendrier" | "/analyses" | "/parametres";
 type ProPath = "/pro" | "/pro/demandes" | "/pro/agenda" | "/pro/clients" | "/pro/prestations" | "/pro/revenus" | "/pro/messages" | "/pro/parametres";
@@ -36,6 +43,7 @@ export function Sidebar({
   collapsed = false,
   onNavigate,
 }: { collapsed?: boolean; onNavigate?: () => void } = {}) {
+  const [isHovered, setIsHovered] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
@@ -50,6 +58,8 @@ export function Sidebar({
   const isClient = role === "client";
   const nav = isClient ? clientNav : proNav;
 
+  const showLabels = !collapsed || isHovered;
+
   function switchTo(r: "client" | "pro") {
     setRole(r);
     navigate({ to: r === "client" ? "/" : "/pro" });
@@ -57,72 +67,85 @@ export function Sidebar({
   }
 
   return (
-    <aside
-      className={`${collapsed ? "w-16" : "w-64"} shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col h-screen sticky top-0 transition-all duration-200`}
-    >
-      <div className={`${collapsed ? "px-3" : "px-6"} pt-6 pb-4 flex items-center gap-2`}>
-        <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-primary-foreground font-bold shadow-glow ${
-          isClient ? "bg-gradient-primary" : "bg-gradient-to-br from-emerald-500 to-teal-600"
-        }`}>
-          B
+    <TooltipProvider delayDuration={0}>
+      <aside
+        onMouseEnter={() => collapsed && setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`${
+          showLabels ? "w-64 shadow-xl z-40" : "w-16"
+        } fixed left-0 top-0 h-screen shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col transition-all duration-200 ease-in-out`}
+      >
+        <div className={`${!showLabels ? "px-3" : "px-6"} pt-6 pb-4 flex items-center gap-2`}>
+          <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-primary-foreground font-bold shadow-glow ${
+            isClient ? "bg-gradient-primary" : "bg-gradient-to-br from-emerald-500 to-teal-600"
+          }`}>
+            B
+          </div>
+          {showLabels && (
+            <div className="font-semibold text-lg animate-fade-in whitespace-nowrap">
+              Booker <span className="text-muted-foreground font-normal">NoW</span>
+            </div>
+          )}
         </div>
-        {!collapsed && (
-          <div className="font-semibold text-lg">
-            Booker <span className="text-muted-foreground font-normal">NoW</span>
+
+        {/* Role switch */}
+        {!showLabels ? (
+          <div className="mx-2 mb-3 flex flex-col gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => switchTo("client")}
+                  className={`h-9 rounded-lg flex items-center justify-center transition ${
+                    isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <UserCircle className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Espace Client</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => switchTo("pro")}
+                  className={`h-9 rounded-lg flex items-center justify-center transition ${
+                    !isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Espace Pro</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="mx-3 mb-3 p-1 rounded-xl bg-secondary flex gap-1 animate-fade-in">
+            <button
+              onClick={() => switchTo("client")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <UserCircle className="w-3.5 h-3.5" /> Client
+            </button>
+            <button
+              onClick={() => switchTo("pro")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                !isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" /> Pro
+            </button>
           </div>
         )}
-      </div>
 
-      {/* Role switch */}
-      {collapsed ? (
-        <div className="mx-2 mb-3 flex flex-col gap-1">
-          <button
-            onClick={() => switchTo("client")}
-            title="Client"
-            className={`h-9 rounded-lg flex items-center justify-center transition ${
-              isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:bg-secondary"
-            }`}
-          >
-            <UserCircle className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => switchTo("pro")}
-            title="Pro"
-            className={`h-9 rounded-lg flex items-center justify-center transition ${
-              !isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:bg-secondary"
-            }`}
-          >
-            <Briefcase className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <div className="mx-3 mb-3 p-1 rounded-xl bg-secondary flex gap-1">
-          <button
-            onClick={() => switchTo("client")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-              isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <UserCircle className="w-3.5 h-3.5" /> Client
-          </button>
-          <button
-            onClick={() => switchTo("pro")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-              !isClient ? "bg-card shadow-soft text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" /> Pro
-          </button>
-        </div>
-      )}
-
-      {!collapsed && (
-        <div className={`mx-3 mb-2 px-2 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase ${
-          isClient ? "text-primary" : "text-emerald-600"
-        }`}>
-          {isClient ? "Espace client" : "Espace professionnel"}
-        </div>
-      )}
+        {showLabels && (
+          <div className={`mx-3 mb-2 px-2 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase animate-fade-in whitespace-nowrap ${
+            isClient ? "text-primary" : "text-emerald-600"
+          }`}>
+            {isClient ? "Espace client" : "Espace professionnel"}
+          </div>
+        )}
 
       <nav className={`flex-1 ${collapsed ? "px-2" : "px-3"} space-y-1 overflow-y-auto`}>
         {nav.map((item) => {
