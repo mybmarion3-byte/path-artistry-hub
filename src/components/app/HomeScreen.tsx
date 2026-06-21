@@ -1235,6 +1235,7 @@ function StepAddress({
         </button>
         {addressId === "custom" && (
           <input
+            ref={customRef}
             value={customAddress}
             onChange={(e) => onCustomChange(e.target.value)}
             placeholder="Ex : 5 rue de la Paix, 75002 Paris"
