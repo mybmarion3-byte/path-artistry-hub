@@ -246,6 +246,12 @@ export type Booking = {
   price: number;
   status: "upcoming" | "completed" | "cancelled";
   createdAt: number;
+  address?: string;
+  businessName?: string;
+  collaboratorName?: string;
+  phone?: string;
+  digicode?: string;
+  comments?: string;
 };
 
 export type Message = {
