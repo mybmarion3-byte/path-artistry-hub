@@ -25,6 +25,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-background">
+      {/* Spacer to prevent layout shift during hover expand */}
+      <div className={`${expanded ? "w-64" : "w-16"} shrink-0 transition-all duration-200 hidden md:block`} />
       <Sidebar collapsed={!expanded} />
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center sticky top-0 z-30">
