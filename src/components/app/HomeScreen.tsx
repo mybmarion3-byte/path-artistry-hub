@@ -810,7 +810,7 @@ const ACCOUNT_PROFILE = {
   digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
 };
 
-const ACCOUNT_MAIN_ADDRESS = DEFAULT_ADDRESSES.find((a) => a.kind === "home");
+const ACCOUNT_MAIN_ADDRESS = null; // ← nul pour simuler l'absence d'adresse principale
 const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
 const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
 
@@ -848,6 +848,8 @@ function BookingDialog({
   const [phone, setPhone] = useState("");
   const [digicode, setDigicode] = useState("");
   const [comments, setComments] = useState("");
+  const [localAddresses, setLocalAddresses] = useState<ClientAddress[]>([]);
+  const [isCreatingAddress, setIsCreatingAddress] = useState(false);
 
   useEffect(() => {
     if (state) {
@@ -859,8 +861,10 @@ function BookingDialog({
         : state.pro.modes[0];
       setMode(defaultMode);
       // Si pas d'adresse principale enregistrée → on bascule direct sur la saisie custom
-      setAddressId(HAS_MAIN_ADDRESS ? ACCOUNT_MAIN_ADDRESS!.id : "custom");
+      setAddressId(HAS_MAIN_ADDRESS ? "a1" : "custom");
       setCustomAddress("");
+      setLocalAddresses(HAS_MAIN_ADDRESS ? DEFAULT_ADDRESSES : DEFAULT_ADDRESSES.filter((a) => a.kind !== "home"));
+      setIsCreatingAddress(false);
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
@@ -892,7 +896,7 @@ function BookingDialog({
   const selectedBusiness: BusinessLocation | undefined =
     businessId ? BUSINESSES.find((b) => b.id === businessId) : undefined;
   const selectedAddress: ClientAddress | undefined =
-    addressId ? DEFAULT_ADDRESSES.find((a) => a.id === addressId) : undefined;
+    addressId ? localAddresses.find((a) => a.id === addressId) : undefined;
   const finalAddress =
     mode === "home"
       ? (addressId === "custom" ? customAddress : selectedAddress?.address) ?? ""
@@ -996,13 +1000,28 @@ function BookingDialog({
 
           {currentStep === "address" && (
             <StepAddress
-              addresses={DEFAULT_ADDRESSES}
+              addresses={localAddresses}
               addressId={addressId}
               customAddress={customAddress}
               onSelect={setAddressId}
               onCustomChange={setCustomAddress}
               distanceKm={distanceKm}
               etaMin={etaMin}
+              isCreatingAddress={isCreatingAddress}
+              onStartCreate={() => setIsCreatingAddress(true)}
+              onCancelCreate={() => setIsCreatingAddress(false)}
+              onSaveCreate={(label, address, kind) => {
+                const newAddr: ClientAddress = {
+                  id: "created-" + Date.now(),
+                  label,
+                  address,
+                  kind,
+                };
+                setLocalAddresses((prev) => [...prev, newAddr]);
+                setAddressId(newAddr.id);
+                setIsCreatingAddress(false);
+                toast.success("Adresse principale créée !");
+              }}
             />
           )}
 
@@ -1172,7 +1191,17 @@ function StepMode({
 }
 
 function StepAddress({
-  addresses, addressId, customAddress, onSelect, onCustomChange, distanceKm, etaMin,
+  addresses,
+  addressId,
+  customAddress,
+  onSelect,
+  onCustomChange,
+  distanceKm,
+  etaMin,
+  isCreatingAddress,
+  onStartCreate,
+  onCancelCreate,
+  onSaveCreate,
 }: {
   addresses: ClientAddress[];
   addressId?: string;
@@ -1181,22 +1210,132 @@ function StepAddress({
   onCustomChange: (v: string) => void;
   distanceKm: number;
   etaMin: number;
+  isCreatingAddress: boolean;
+  onStartCreate: () => void;
+  onCancelCreate: () => void;
+  onSaveCreate: (label: string, address: string, kind: ClientAddress["kind"]) => void;
 }) {
   const iconFor = (k: ClientAddress["kind"]) =>
     k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
   const customRef = useRef<HTMLInputElement>(null);
+
+  const [newLabel, setNewLabel] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+  const [newKind, setNewKind] = useState<ClientAddress["kind"]>("home");
+
   useEffect(() => {
     if (addressId === "custom") customRef.current?.focus();
   }, [addressId]);
+
+  if (isCreatingAddress) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold">Créer une adresse principale</div>
+          <button
+            type="button"
+            onClick={onCancelCreate}
+            className="text-xs text-muted-foreground hover:text-foreground font-medium"
+          >
+            Annuler
+          </button>
+        </div>
+
+        <div className="space-y-3 bg-secondary/30 p-4 rounded-2xl border border-border">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">Type d'adresse</label>
+            <div className="grid grid-cols-4 gap-2">
+              {(["home", "office", "hotel", "custom"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setNewKind(k)}
+                  className={`py-2 px-1 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition ${
+                    newKind === k ? "border-primary bg-accent/40 text-primary animate-scale-up" : "border-border hover:bg-secondary bg-card"
+                  }`}
+                >
+                  {k === "home" ? (
+                    <HomeIcon className="w-3.5 h-3.5" />
+                  ) : k === "office" ? (
+                    <Briefcase className="w-3.5 h-3.5" />
+                  ) : k === "hotel" ? (
+                    <Hotel className="w-3.5 h-3.5" />
+                  ) : (
+                    <MapPin className="w-3.5 h-3.5" />
+                  )}
+                  <span>{k === "home" ? "Domicile" : k === "office" ? "Bureau" : k === "hotel" ? "Hôtel" : "Autre"}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">Nom (ex : Chez Marion)</label>
+            <input
+              type="text"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="Ex : Appartement principal"
+              className="w-full h-10 px-3 rounded-xl border border-border bg-card text-sm outline-none focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">Adresse complète</label>
+            <input
+              type="text"
+              value={newAddress}
+              onChange={(e) => setNewAddress(e.target.value)}
+              placeholder="Ex : 5 rue de la Paix, 75002 Paris"
+              className="w-full h-10 px-3 rounded-xl border border-border bg-card text-sm outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancelCreate}
+            className="flex-1 py-2 rounded-xl border border-border text-sm font-medium hover:bg-secondary"
+          >
+            Retour au tunnel
+          </button>
+          <button
+            type="button"
+            disabled={!newLabel.trim() || !newAddress.trim()}
+            onClick={() => {
+              onSaveCreate(newLabel.trim(), newAddress.trim(), newKind);
+              setNewLabel("");
+              setNewAddress("");
+              setNewKind("home");
+            }}
+            className="flex-[2] bg-gradient-primary text-primary-foreground rounded-xl py-2 text-sm font-semibold shadow-glow disabled:opacity-50"
+          >
+            Valider et revenir
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
       {!HAS_MAIN_ADDRESS && (
-        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>
-            <strong>Aucune adresse principale enregistrée.</strong> Saisissez-la ci-dessous, elle sera mémorisée pour vos prochaines réservations.
-          </span>
+        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-2.5">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              <strong>Aucune adresse principale enregistrée.</strong> Créez une nouvelle adresse pour l'ajouter à votre compte ou saisissez une adresse personnalisée ci-dessous.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onStartCreate}
+            className="self-start px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold transition flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" /> Créer une adresse principale
+          </button>
         </div>
       )}
       <div className="space-y-2">
