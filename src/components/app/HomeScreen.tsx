@@ -1271,6 +1271,7 @@ function StepAddress({
       setNewKind("home");
       setSuggestions([]);
       setShowSuggestions(false);
+      setGeoInfo(null);
     }
   }, [isCreatingAddress, suggestedLabel]);
 
