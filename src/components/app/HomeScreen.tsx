@@ -806,13 +806,37 @@ function ProfileSheet(props: {
 // Laisser un champ vide pour simuler une info manquante — le tunnel basculera dessus automatiquement.
 const ACCOUNT_PROFILE = {
   firstName: "Marion",
+  lastName: "Dubois",
   phone: "06 24 18 92 07",
   digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
+  city: "Paris",
 };
 
 const ACCOUNT_MAIN_ADDRESS = null; // ← nul pour simuler l'absence d'adresse principale
 const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
 const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
+
+// Adresse favorite du compte (la plus utilisée par le client)
+const FAVORITE_ADDRESS_ID = "a2"; // Hôtel Le Meurice dans DEFAULT_ADDRESSES
+
+// Position GPS simulée (en l'absence de Geolocation API réelle)
+const CURRENT_LOCATION_LABEL = "12 avenue de l'Opéra, 75001 Paris";
+
+// Base d'autocomplétion locale (simulation Google Places)
+const ADDRESS_SUGGESTIONS_DB = [
+  "5 rue de la Paix, 75002 Paris",
+  "12 avenue de l'Opéra, 75001 Paris",
+  "8 boulevard Haussmann, 75009 Paris",
+  "24 rue de Tocqueville, 75017 Paris",
+  "45 rue du Faubourg Saint-Honoré, 75008 Paris",
+  "3 place Vendôme, 75001 Paris",
+  "17 rue Saint-Dominique, 75007 Paris",
+  "228 rue de Rivoli, 75001 Paris",
+  "9 rue Royale, 75008 Paris",
+  "60 rue de Sèvres, 75007 Paris",
+  "Tour First, 1 place des Saisons, 92800 Puteaux",
+  "14 rue Cler, 75007 Paris",
+];
 
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
