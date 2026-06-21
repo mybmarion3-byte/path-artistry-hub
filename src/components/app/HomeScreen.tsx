@@ -858,12 +858,13 @@ function BookingDialog({
         ? "home"
         : state.pro.modes[0];
       setMode(defaultMode);
-      setAddressId("a1");
+      // Si pas d'adresse principale enregistrée → on bascule direct sur la saisie custom
+      setAddressId(HAS_MAIN_ADDRESS ? ACCOUNT_MAIN_ADDRESS!.id : "custom");
       setCustomAddress("");
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
-      // Pré-rempli depuis le compte client
+      // Pré-rempli depuis le compte client (les champs vides resteront à compléter)
       setPhone(ACCOUNT_PROFILE.phone);
       setDigicode(ACCOUNT_PROFILE.digicode);
       setComments("");
