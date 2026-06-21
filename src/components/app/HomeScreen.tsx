@@ -200,6 +200,8 @@ function ProListColumn(props: {
           const p = r.pro;
           const active = p.id === selectedProId;
           const fav = favorites.includes(p.id);
+          const etaMin = Math.max(8, Math.round(p.distanceKm * 6 + 6));
+          const isNow = r.statusTone === "now";
           return (
             <div
               key={p.id}
@@ -208,20 +210,22 @@ function ProListColumn(props: {
               onClick={() => props.onSelect(p.id)}
               onDoubleClick={() => props.onOpenProfile(p.id)}
               onKeyDown={(e) => { if (e.key === "Enter") props.onSelect(p.id); }}
-              className={`w-full text-left p-3 rounded-2xl border transition relative group cursor-pointer ${
-                active ? "border-primary bg-accent/40" : "border-border hover:border-primary/40 hover:bg-secondary/50"
+              className={`w-full text-left p-3 rounded-[20px] border transition relative group cursor-pointer bg-card ${
+                active
+                  ? "border-primary/40 shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.35)] ring-1 ring-primary/20"
+                  : "border-border hover:border-primary/30 hover:shadow-sm"
               }`}
             >
-              {r.statusTone === "now" && (
-                <span className="absolute -top-2 left-12 text-[10px] font-semibold bg-success text-success-foreground px-2 py-0.5 rounded-full">
-                  Dispo
-                </span>
+              {isNow && (
+                <div className="mb-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow-sm">
+                  <Zap className="w-3 h-3 fill-white" /> Disponible maintenant
+                </div>
               )}
               <div className="flex gap-3">
                 <div className="relative shrink-0">
                   <img src={p.avatar} alt={p.name} className="w-12 h-12 rounded-full object-cover" loading="lazy" />
-                  {r.statusTone === "now" && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-card" />
+                  {isNow && (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-card" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -236,22 +240,22 @@ function ProListColumn(props: {
                     </button>
                   </div>
                   <div className="text-xs text-muted-foreground">{p.job}</div>
-                  <div className="flex items-center gap-1.5 mt-1 text-xs">
+                  <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
                     <Star className="w-3 h-3 fill-warning text-warning" />
                     <span className="font-medium">{p.rating.toFixed(1)}</span>
-                    <span className="text-muted-foreground">({p.reviews})</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-muted-foreground">{p.distanceKm} km</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-muted-foreground">dès {p.price}€</span>
-                  </div>
-                  <div className={`text-xs font-medium mt-1 ${
-                    r.statusTone === "now" ? "text-success" :
-                    r.statusTone === "soon" ? "text-primary" : "text-muted-foreground"
-                  }`}>
-                    {r.statusLabel}
+                    <span className="text-muted-foreground">• 📍 {p.distanceKm} km</span>
+                    <span className="text-muted-foreground">• 💰 dès {p.price} €</span>
                   </div>
                 </div>
+              </div>
+              <div className={`mt-2.5 flex items-center gap-1.5 text-sm font-semibold ${
+                isNow ? "text-emerald-600" : r.statusTone === "soon" ? "text-primary" : "text-muted-foreground"
+              }`}>
+                {isNow ? (
+                  <><Zap className="w-4 h-4 fill-emerald-500 text-emerald-500" /> Disponible dans {etaMin} min</>
+                ) : (
+                  <><Clock className="w-3.5 h-3.5" /> {r.statusLabel}</>
+                )}
               </div>
             </div>
           );
@@ -368,6 +372,8 @@ function MapView(props: {
           {results.map((r) => {
             const p = r.pro;
             const active = p.id === selectedId;
+            const etaMin = Math.max(8, Math.round(p.distanceKm * 6 + 6));
+            const isNow = r.statusTone === "now";
             return (
               <button
                 key={p.id}
@@ -376,16 +382,29 @@ function MapView(props: {
                 className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
               >
+                {active && (
+                  <>
+                    <span className="absolute inset-0 -m-4 rounded-full bg-emerald-400/30 blur-xl animate-pulse" />
+                    <span className="absolute inset-0 -m-2 rounded-full ring-4 ring-emerald-400/40" />
+                  </>
+                )}
                 <div className={`relative rounded-full p-0.5 transition ${
-                  active ? "bg-success scale-110" : "bg-card shadow-card group-hover:scale-105"
+                  active ? "bg-emerald-500 scale-110 shadow-[0_0_24px_rgba(16,185,129,0.6)]" : "bg-card shadow-card group-hover:scale-105"
                 }`}>
                   <img src={p.avatar} className={`rounded-full object-cover ${active ? "w-16 h-16" : "w-12 h-12"}`} alt="" loading="lazy" />
-                  <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                    r.statusTone === "now" ? "bg-success text-success-foreground" : "bg-foreground text-background"
-                  }`}>
-                    {r.statusTone === "now" ? "Maintenant" : p.availability}
-                  </span>
                 </div>
+                {active && isNow ? (
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-emerald-500 text-white rounded-xl px-2.5 py-1 shadow-lg whitespace-nowrap text-center">
+                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"><Zap className="w-3 h-3 fill-white" /> Disponible</div>
+                    <div className="text-[10px] opacity-95">Chez vous dans {etaMin} min</div>
+                  </div>
+                ) : (
+                  <span className={`absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm ${
+                    isNow ? "bg-emerald-500 text-white" : "bg-card text-foreground border border-border"
+                  }`}>
+                    {isNow ? `${etaMin} min` : p.availability}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -454,8 +473,11 @@ function BookingPanel(props: {
   }
 
   const pro = result.pro;
+  const etaMin = Math.max(8, Math.round(pro.distanceKm * 6 + 6));
+  const isNow = result.statusTone === "now";
+  const firstSlotLabel = result.nextSlots.find((s) => s.label !== "Maintenant")?.label ?? result.nextSlots[0]?.label ?? "—";
   return (
-    <div className="bg-card border border-border rounded-3xl p-5 flex flex-col min-h-0 shadow-soft overflow-y-auto">
+    <div className="bg-card border border-border rounded-[24px] p-5 flex flex-col min-h-0 shadow-soft overflow-y-auto">
       <div className="flex gap-3">
         <img src={pro.avatar} className="w-16 h-16 rounded-full object-cover" alt={pro.name} />
         <div className="flex-1 min-w-0">
@@ -470,66 +492,94 @@ function BookingPanel(props: {
             <span className="text-muted-foreground">({pro.reviews} avis)</span>
             <span className="text-muted-foreground">• {pro.distanceKm} km</span>
           </div>
-          <div className={`flex items-center gap-1 text-xs font-medium mt-1 ${
-            result.statusTone === "now" ? "text-success" : "text-primary"
-          }`}>
-            <Clock className="w-3 h-3" /> {result.statusLabel}
-          </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mt-3 text-[11px]">
-        {pro.modes.includes("home") && (
-          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><HomeIcon className="w-3 h-3" /> À domicile</span>
-        )}
-        {pro.modes.includes("studio") && (
-          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><Building2 className="w-3 h-3" /> Studio</span>
-        )}
-        {pro.modes.includes("video") && (
-          <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><Video className="w-3 h-3" /> Visio</span>
-        )}
-        <span className="flex items-center gap-1 bg-secondary px-2 py-1 rounded-full"><CreditCard className="w-3 h-3" /> Paiement sécurisé</span>
-      </div>
+      {isNow ? (
+        <div className="mt-4 rounded-[20px] bg-emerald-50 border border-emerald-200/70 p-4">
+          <div className="flex items-center gap-2 text-emerald-700">
+            <span className="relative flex w-2.5 h-2.5">
+              <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
+              <span className="relative rounded-full w-2.5 h-2.5 bg-emerald-500" />
+            </span>
+            <span className="text-sm font-semibold">Chez vous dans {etaMin} min</span>
+          </div>
+          <div className="text-xs text-emerald-700/80 mt-1">Premier créneau : {firstSlotLabel}</div>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-[20px] bg-accent/40 border border-border p-4 flex items-center gap-2 text-sm text-foreground">
+          <Clock className="w-4 h-4 text-primary" /> {result.statusLabel}
+        </div>
+      )}
 
-      <div className="mt-4 text-sm">
-        <div className="font-semibold">{pro.specialty}</div>
-        <p className="text-muted-foreground text-xs mt-1 leading-relaxed">{pro.bio}</p>
-        <p className="text-[11px] text-muted-foreground mt-1">{pro.experience} ans d'expérience</p>
-      </div>
-
-      <div className="mt-4">
-        <div className="text-sm font-semibold mb-2">Prestations populaires</div>
-        <div className="space-y-1.5">
-          {pro.services.slice(0, 3).map((s) => (
-            <div key={s.id} className="flex items-center justify-between text-sm">
-              <span>{s.name} <span className="text-muted-foreground text-xs">· {s.duration} min</span></span>
-              <span className="font-medium">{s.price} €</span>
-            </div>
-          ))}
+      <div className="mt-5">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Mode de prestation</div>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { m: "home" as const, label: "À domicile", icon: HomeIcon, emoji: "🏠" },
+            { m: "studio" as const, label: "Établissement", icon: Building2, emoji: "🏢" },
+            { m: "video" as const, label: "Visio", icon: Video, emoji: "💻" },
+          ]).map((opt) => {
+            const enabled = pro.modes.includes(opt.m);
+            return (
+              <button
+                key={opt.m}
+                disabled={!enabled}
+                className={`flex flex-col items-center gap-1 py-2.5 rounded-2xl border text-[11px] font-medium transition ${
+                  enabled
+                    ? "border-border bg-card hover:border-primary/40 hover:bg-accent/30"
+                    : "border-border/50 bg-secondary/40 text-muted-foreground/60 cursor-not-allowed"
+                }`}
+              >
+                <span className="text-base leading-none">{opt.emoji}</span>
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="mt-5">
-        <div className="text-sm font-semibold mb-2">Prochaines disponibilités</div>
+        <div className="text-sm font-semibold">{pro.specialty}</div>
+        <p className="text-muted-foreground text-xs mt-1 leading-relaxed line-clamp-2">{pro.bio}</p>
+      </div>
+
+      <div className="mt-5">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Disponibilités</div>
         <div className="grid grid-cols-3 gap-2">
-          {result.nextSlots.slice(0, 6).map((s) => (
-            <button
-              key={s.iso}
-              onClick={() => props.onBook(s.iso)}
-              className="py-2 rounded-xl text-xs font-medium border border-border hover:border-primary hover:bg-accent/40 transition"
-            >
-              {s.label}
-            </button>
-          ))}
+          {result.nextSlots.slice(0, 6).map((s) => {
+            const slotIsNow = s.label === "Maintenant";
+            return (
+              <button
+                key={s.iso}
+                onClick={() => props.onBook(s.iso)}
+                className={`py-2.5 rounded-2xl text-xs font-semibold border transition ${
+                  slotIsNow
+                    ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.35)] hover:bg-emerald-600"
+                    : "border-border bg-card hover:border-primary/40 hover:bg-accent/30"
+                }`}
+              >
+                {slotIsNow ? <span className="inline-flex items-center gap-1"><Zap className="w-3 h-3 fill-white" />Maintenant</span> : s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="mt-auto pt-5 space-y-2">
         <button
           onClick={() => props.onBook(result.nextSlots[0]?.iso ?? "")}
-          className="w-full bg-gradient-primary text-primary-foreground font-semibold rounded-2xl py-3.5 shadow-glow hover:opacity-95 transition"
+          className={`w-full font-semibold rounded-2xl py-3.5 transition ${
+            isNow
+              ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_10px_30px_-10px_rgba(16,185,129,0.55)]"
+              : "bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-95"
+          }`}
         >
-          Réserver dès {pro.price} €
+          <div className="flex items-center justify-center gap-2 text-base">
+            {isNow && <Zap className="w-4 h-4 fill-white" />}
+            {isNow ? "Réserver maintenant" : `Réserver dès ${pro.price} €`}
+          </div>
+          {isNow && <div className="text-[11px] font-normal opacity-90 mt-0.5">Disponible dans {etaMin} min</div>}
         </button>
         <button
           onClick={props.onOpenProfile}
