@@ -1184,9 +1184,21 @@ function StepAddress({
 }) {
   const iconFor = (k: ClientAddress["kind"]) =>
     k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
+  const customRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (addressId === "custom") customRef.current?.focus();
+  }, [addressId]);
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
+      {!HAS_MAIN_ADDRESS && (
+        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Aucune adresse principale enregistrée.</strong> Saisissez-la ci-dessous, elle sera mémorisée pour vos prochaines réservations.
+          </span>
+        </div>
+      )}
       <div className="space-y-2">
         {addresses.map((a) => {
           const Icon = iconFor(a.kind);
