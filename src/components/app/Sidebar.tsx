@@ -61,7 +61,7 @@ export function Sidebar() {
           B
         </div>
         <div className="font-semibold text-lg">
-          Booker <span className="text-muted-foreground font-normal">&nbsp;NoW</span>
+          Booker <span className="text-muted-foreground font-normal">NoW</span>
         </div>
       </div>
 
