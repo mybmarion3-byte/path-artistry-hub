@@ -552,8 +552,9 @@ function BookingPanel(props: {
               <span className="relative rounded-full w-2.5 h-2.5 bg-emerald-500" />
             </span>
             <span className="text-sm font-semibold">Chez vous dans {etaMin} min</span>
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-emerald-600/80">Live</span>
           </div>
-          <div className="text-xs text-emerald-700/80 mt-1">Premier créneau : {firstSlotLabel}</div>
+          <div className="text-xs text-emerald-700/80 mt-1">Premier créneau : {firstSlotLabel} · depuis {location || "votre position"}</div>
         </div>
       ) : (
         <div className="mt-4 rounded-[20px] bg-accent/40 border border-border p-4 flex items-center gap-2 text-sm text-foreground">
