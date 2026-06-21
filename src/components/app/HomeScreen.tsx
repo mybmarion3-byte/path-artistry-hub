@@ -810,7 +810,7 @@ const ACCOUNT_PROFILE = {
   digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
 };
 
-const ACCOUNT_MAIN_ADDRESS = DEFAULT_ADDRESSES.find((a) => a.kind === "home");
+const ACCOUNT_MAIN_ADDRESS = null; // ← nul pour simuler l'absence d'adresse principale
 const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
 const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
 
