@@ -419,7 +419,7 @@ function MapView(props: {
           {results.map((r) => {
             const p = r.pro;
             const active = p.id === selectedId;
-            const etaMin = Math.max(8, Math.round(p.distanceKm * 6 + 6));
+            const etaMin = liveEta(p);
             const isNow = r.statusTone === "now";
             return (
               <button
