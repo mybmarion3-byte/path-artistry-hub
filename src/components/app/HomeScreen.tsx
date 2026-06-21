@@ -1631,21 +1631,12 @@ function StepAddress({
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
-      {!HAS_MAIN_ADDRESS && (
-        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-2.5">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              <strong>Aucune adresse principale enregistrée.</strong> Créez une nouvelle adresse pour l'ajouter à votre compte ou saisissez une adresse personnalisée ci-dessous.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onStartCreate}
-            className="self-start px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold transition flex items-center gap-1"
-          >
-            <Plus className="w-3.5 h-3.5" /> Créer une adresse principale
-          </button>
+      {!HAS_MAIN_ADDRESS && addresses.length === 0 && (
+        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Aucune adresse principale enregistrée.</strong> Ajoutez-en une via le bouton ci-dessous — elle sera mémorisée pour vos prochaines réservations.
+          </span>
         </div>
       )}
       <div className="space-y-2">
@@ -1672,28 +1663,22 @@ function StepAddress({
           );
         })}
         <button
-          onClick={() => onSelect("custom")}
-          className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
-            addressId === "custom" ? "border-primary bg-accent/40" : "border-dashed border-border hover:bg-secondary"
-          }`}
+          type="button"
+          onClick={onStartCreate}
+          className="w-full flex items-center gap-3 p-3 rounded-2xl border border-dashed border-border hover:border-primary hover:bg-secondary text-left transition"
         >
-          <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Plus className="w-4 h-4 text-primary" />
           </div>
-          <span className="text-sm font-semibold">Ajouter une nouvelle adresse</span>
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Ajouter une nouvelle adresse</div>
+            <div className="text-[11px] text-muted-foreground">Géolocalisation, favoris et autocomplétion</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground" />
         </button>
-        {addressId === "custom" && (
-          <input
-            ref={customRef}
-            value={customAddress}
-            onChange={(e) => onCustomChange(e.target.value)}
-            placeholder="Ex : 5 rue de la Paix, 75002 Paris"
-            className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
-          />
-        )}
       </div>
 
-      {(addressId && (addressId !== "custom" || customAddress.length > 3)) && (
+      {addressId && addressId !== "custom" && (
         <div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200/70 p-3 text-xs text-emerald-700 flex items-center gap-4">
           <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {distanceKm.toFixed(1)} km</div>
           <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> ~{etaMin} min</div>
