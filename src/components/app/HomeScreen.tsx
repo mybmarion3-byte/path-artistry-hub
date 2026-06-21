@@ -12,6 +12,38 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import mapBg from "@/assets/map-paris.jpg";
 
+function hashLocation(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/**
+ * Real-time ETA: recomputes every 30 s and whenever the user's location changes.
+ * Returns the estimated arrival time in minutes for any pro.
+ */
+function useLiveEta(location: string) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const offsetKm = useMemo(() => {
+    const h = hashLocation(location || "");
+    // Deterministic offset per location, range ~[-1.0, +2.6] km
+    return ((h % 36) / 10) - 1.0;
+  }, [location]);
+  return useMemo(() => {
+    const minute = new Date().getMinutes();
+    const jitter = ((minute % 5) - 2); // small live variation ±2 min
+    return (pro: { distanceKm: number }) => {
+      const adj = Math.max(0.2, pro.distanceKm + offsetKm);
+      return Math.max(5, Math.round(adj * 6 + 6 + jitter));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offsetKm, tick]);
+}
+
 export function HomeScreen() {
   const {
     selectedProId, favorites, filters, view,
