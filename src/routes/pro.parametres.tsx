@@ -62,8 +62,46 @@ function Page() {
           </div>
         </Section>
 
+        {/* Modes de prestation */}
+        <Section icon={<Settings className="w-5 h-5 text-emerald-600" />} title="Modes de prestation" desc="Cochez uniquement les modes que vous proposez. Les clients ne verront que ceux-ci.">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {([
+              { m: "home" as Mode, label: "À domicile", sub: "Vous vous déplacez chez le client", Icon: HomeIcon },
+              { m: "studio" as Mode, label: "En établissement", sub: "Le client vient à votre adresse", Icon: Building2 },
+              { m: "video" as Mode, label: "En visio", sub: "Séance à distance", Icon: Video },
+            ]).map(({ m, label, sub, Icon }) => {
+              const active = modes.includes(m);
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => toggleMode(m)}
+                  className={`relative text-left p-4 rounded-2xl border transition ${
+                    active
+                      ? "border-emerald-500 bg-emerald-500/5 shadow-soft"
+                      : "border-border hover:border-emerald-500/40 hover:bg-secondary"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 mb-2 ${active ? "text-emerald-600" : "text-muted-foreground"}`} />
+                  <div className="text-sm font-semibold">{label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>
+                  {active && (
+                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {modes.length === 0 && (
+            <div className="text-xs text-destructive mt-1">Vous devez proposer au moins un mode.</div>
+          )}
+        </Section>
+
         {/* Zone */}
         <Section icon={<MapPin className="w-5 h-5 text-emerald-600" />} title="Zone d'intervention" desc="Définissez votre rayon et budget minimum.">
+
           <Field label={`Rayon · ${settings.radiusKm} km`}>
             <input type="range" min={1} max={20} value={settings.radiusKm} onChange={(e) => update({ radiusKm: Number(e.target.value) })} className="w-full accent-emerald-500" />
           </Field>
