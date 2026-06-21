@@ -50,6 +50,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   function switchTo(r: "client" | "pro") {
     setRole(r);
     navigate({ to: r === "client" ? "/" : "/pro" });
+    onNavigate?.();
   }
 
   return (
