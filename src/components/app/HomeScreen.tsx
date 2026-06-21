@@ -176,7 +176,9 @@ function ProListColumn(props: {
   onClear: () => void;
   onOpenFilters: () => void;
 }) {
-  const { results, selectedProId, favorites, filters } = props;
+  const location = useBooker((s) => s.location);
+  const liveEta = useLiveEta(location);
+
   return (
     <div className="bg-card border border-border rounded-3xl p-5 flex flex-col min-h-0 shadow-soft">
       <div className="flex items-center justify-between">
