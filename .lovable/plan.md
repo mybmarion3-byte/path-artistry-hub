@@ -1,82 +1,72 @@
-## Booker V1 — Parcours client complet
+# Refonte du tunnel de réservation Booker
 
-Construction du vrai parcours client end-to-end sur la page d'accueil et les pages liées, avec moteur de matching et mode "demande instantanée".
+Reconstruction complète du composant `BookingDialog` pour gérer deux parcours adaptatifs selon le mode choisi. **Aucun autre fichier non lié n'est modifié** (sidebar, page de recherche, ETA temps réel, etc. restent intacts).
 
-### 1. Moteur de matching (`src/lib/matching.ts`)
-Fonction qui répond : "Qui peut prendre cette demande, où, et quand ?"
-Entrées : `{ category, location, when: 'now'|'today'|date, atHome }`
-Calcule pour chaque pro :
-- compatibilité catégorie/prestation
-- distance (déjà dans le store)
-- prochaine disponibilité réelle (parsée depuis `availability`)
-- mode (domicile/établissement/visio)
-- score de pertinence (distance + dispo + note)
-Retourne pros triés + statut lisible : "Disponible maintenant", "Dans 12 min", "À 14h30", "Demain 10h"…
+## Périmètre
 
-### 2. Données enrichies (`booker-store.ts`)
-Ajouter au type `Pro` :
-- `services: { id, name, duration, price }[]` (plusieurs prestations par pro)
-- `modes: ('home'|'studio'|'video')[]`
-- `nextSlots: string[]` (créneaux ISO des prochaines dispos)
-- `experience`, `portfolio[]`
+- `src/lib/booker-store.ts` : ajout des données nécessaires (établissements, adresses client, lien pros ↔ établissements). Pas de retrait de l'existant.
+- `src/components/app/HomeScreen.tsx` : remplacement de `BookingDialog` (lignes 802-978) par un nouveau tunnel multi-étapes.
 
-Ajouter au store :
-- `requests: InstantRequest[]` (demandes instantanées envoyées)
-- `createRequest()`, `acceptRequest()` (simulation pro accepte après délai)
-- `searchQuery`, `setSearchQuery`
-- `when: 'now'|'today'|date`, `setWhen`
+## Données ajoutées au store
 
-### 3. Recherche (HomeScreen — barre du haut)
-Barre de recherche fonctionnelle :
-- input prestation (autocomplete sur catégories/services)
-- sélecteur lieu (Paris 17e par défaut, éditable)
-- sélecteur quand (Maintenant / Aujourd'hui / Date)
-- toggle "à domicile"
-Déclenche le moteur de matching → met à jour la liste + la carte.
+```text
+BusinessLocation
+  id, name, photo, address, distanceKm, nextSlot
+  proIds: string[]         // pros qui y travaillent
 
-### 4. Carte avec statuts précis
-Sur chaque pin et chaque carte de la liste :
-- Badge dispo précis ("Maintenant", "Dans 12 min", "14h30", "Demain 10h")
-- Couleur selon statut (vert/orange/gris)
-- Prix de départ
-- Distance
-Bouton vue : Carte / Liste / IA Match (déjà présent, à rendre fonctionnel).
+ClientAddress
+  id, label (Domicile | Hôtel | Bureau | Custom), address, kind
 
-### 5. Profil pro détaillé (drawer/sheet)
-Clic sur un pro → ouvre une fiche complète :
-- Photo, bio, expérience, note, avis
-- Liste des prestations avec prix + durée (sélectionnable)
-- Modes de prestation (domicile/établissement/visio)
-- Prochaines dispos (créneaux cliquables)
-- Boutons : "Réserver ce créneau" / "Envoyer un message" / "Ajouter aux favoris"
+Pro (étendu, non breaking)
+  businessIds?: string[]   // établissements rattachés
+```
 
-### 6. Tunnel de réservation (Dialog en 3 étapes)
-1. **Prestation** : choix du service + mode
-2. **Créneau** : date + heure (créneaux générés)
-3. **Confirmation** : récap (pro, presta, lieu, prix, frais service) + bouton "Confirmer"
-→ Crée booking, toast succès, redirige vers `/reservations`.
+Trois établissements seed : Salon Paris 17, Salon Boulogne, Coworking Opéra (déjà mentionnés dans la demande). Trois adresses client seed : Domicile (Paris 17e), Hôtel Le Meurice, Bureau La Défense.
 
-### 7. Demande instantanée (mode "Uber")
-Bouton CTA visible sur Home : "Envoyer une demande à plusieurs pros".
-Ouvre un Dialog :
-- prestation, lieu, date/heure, budget, commentaire
-Soumission :
-- Crée `InstantRequest` (status: 'pending')
-- Affiche écran d'attente avec compteur de pros notifiés
-- Après 3-6s : simulation → un pro "accepte" (toast + booking auto créé)
-- Page `/reservations` affiche la nouvelle réservation
+## Tunnel adaptatif
 
-### 8. Pages connexes mises à jour
-- `/reservations` : déjà ok, ajouter actions Annuler / Laisser un avis
-- `/favoris` : fonctionnelle via `favorites` du store
-- `/messages` : envoi de message depuis le profil pro
+Après l'étape « Prestation », question pivot :
 
-### Détails techniques
-- Stack : Zustand + TanStack Router + shadcn (Dialog, Sheet, Tabs, Calendar, Toast déjà installés)
-- Pas de backend : tout en mémoire (Zustand)
-- Simulation "pro accepte" via `setTimeout`
-- Toasts via `sonner` (déjà installé)
-- Aucune dépendance nouvelle nécessaire
+> Comment souhaitez-vous être reçu ?  🏠 À domicile · 🏢 En établissement · 💻 En visio
 
-### Hors scope V1 (repoussé, comme demandé dans le brief)
-Espace pro, CRM, statistiques avancées, paiement réel, coworking, équipes, multi-villes, IA réelle.
+### Parcours « À domicile » (pro mobile)
+1. Prestation
+2. Mode → `home`
+3. Adresse client (liste des adresses sauvegardées + « Ajouter une nouvelle adresse » : Hôtel / Bureau / Personnalisée) — affiche distance, ETA, zone couverte
+4. Créneau
+5. Infos complémentaires (téléphone, digicode, commentaires)
+6. Paiement + récap (pro, prestation, adresse, créneau, ETA, prix)
+
+### Parcours « En établissement »
+1. Prestation
+2. Choix de l'établissement (photo, nom, adresse, distance, prochaine dispo)
+3. Choix du collaborateur (Peu importe / spécifique — photo, note, spécialités, prochaine dispo)
+4. Créneau (agenda de l'établissement)
+5. Infos complémentaires (téléphone, commentaires)
+6. Paiement + récap (établissement, collaborateur, prestation, créneau, prix)
+
+### Parcours « Visio »
+1. Prestation
+2. Mode → `video`
+3. Créneau
+4. Infos complémentaires (téléphone, commentaires)
+5. Paiement + récap
+
+## Détails techniques
+
+- État local du dialog : `{ step, service, mode, businessId?, collaboratorId?, addressId?, customAddress?, slotIso, phone, digicode, comments }`.
+- `Stepper` dynamique selon le nombre d'étapes du parcours actif.
+- ETA réutilise la même formule que la page de recherche (`max(5, distance*6 + 6 + jitter)`).
+- Aucun changement aux types `Booking` existants — on enrichit `Booking` côté création avec `address` / `businessName` optionnels (champs ajoutés sans casser les usages existants).
+- Style cohérent avec l'existant : `rounded-[20px]`, vert émeraude pour les CTA « maintenant », violet Booker sinon, ombres douces.
+
+## UX — ce que l'utilisateur voit
+
+- Une seule question oriente tout : « Comment souhaitez-vous être reçu ? »
+- Le tunnel s'adapte ; le client ne voit jamais la complexité base.
+- Récap final clair, paiement simulé (toast + redirection `/reservations` comme aujourd'hui).
+
+## Hors périmètre (volontairement intact)
+
+- Sidebar, layout, page de recherche, ETA live, panneau de réservation à droite, page pro, etc.
+- Pas de migration DB (Lovable Cloud non activé) — modèle stocké en mémoire via le store Zustand existant.
