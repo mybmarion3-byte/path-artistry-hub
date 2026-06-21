@@ -1253,6 +1253,11 @@ function StepAddress({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [geoInfo, setGeoInfo] = useState<{
+    accuracyM: number;
+    zone: string;
+    tier: "high" | "medium" | "low" | "very-low";
+  } | null>(null);
 
   useEffect(() => {
     if (addressId === "custom") customRef.current?.focus();
