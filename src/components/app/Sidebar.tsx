@@ -147,7 +147,7 @@ export function Sidebar({
           </div>
         )}
 
-      <nav className={`flex-1 ${collapsed ? "px-2" : "px-3"} space-y-1 overflow-y-auto`}>
+      <nav className={`flex-1 ${!showLabels ? "px-2" : "px-3"} space-y-1 overflow-y-auto`}>
         {nav.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.to;
@@ -155,36 +155,35 @@ export function Sidebar({
           const isInbox = item.to === "/pro/demandes";
           const showBadge = isMessages ? unread > 0 : isInbox ? inboxCount > 0 : false;
           const badgeCount = isMessages ? unread : isInbox ? inboxCount : 0;
-          return (
+
+          const linkElement = (
             <Link
-              key={item.to}
               to={item.to}
               onClick={() => onNavigate?.()}
-              title={collapsed ? item.label : undefined}
-              className={`relative flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"} rounded-xl text-sm font-medium transition-colors ${
+              className={`relative flex items-center ${!showLabels ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"} rounded-xl text-sm font-medium transition-colors ${
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-secondary"
               }`}
             >
               <Icon className="w-[18px] h-[18px] shrink-0" />
-              {!collapsed && <span className="flex-1">{item.label}</span>}
-              {!collapsed && item.badge && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gradient-primary text-primary-foreground">
+              {showLabels && <span className="flex-1 animate-fade-in whitespace-nowrap">{item.label}</span>}
+              {showLabels && item.badge && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gradient-primary text-primary-foreground animate-fade-in">
                   {item.badge}
                 </span>
               )}
-              {!collapsed && isMessages && unread > 0 && (
-                <span className="text-[11px] font-semibold w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+              {showLabels && isMessages && unread > 0 && (
+                <span className="text-[11px] font-semibold w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center animate-fade-in">
                   {unread}
                 </span>
               )}
-              {!collapsed && isInbox && inboxCount > 0 && (
-                <span className="text-[11px] font-semibold w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+              {showLabels && isInbox && inboxCount > 0 && (
+                <span className="text-[11px] font-semibold w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center animate-fade-in">
                   {inboxCount}
                 </span>
               )}
-              {collapsed && showBadge && (
+              {!showLabels && showBadge && (
                 <span className={`absolute top-1 right-1 text-[9px] font-semibold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-white ${
                   isInbox ? "bg-emerald-500" : "bg-primary"
                 }`}>
@@ -193,11 +192,31 @@ export function Sidebar({
               )}
             </Link>
           );
+
+          if (!showLabels) {
+            return (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>
+                  {linkElement}
+                </TooltipTrigger>
+                <TooltipContent side="right" className="flex items-center gap-1.5">
+                  {item.label}
+                  {item.badge && (
+                    <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-gradient-primary text-primary-foreground">
+                      {item.badge}
+                    </span>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return <div key={item.to}>{linkElement}</div>;
         })}
       </nav>
 
-      {!collapsed && (
-        <div className="p-3 space-y-3">
+      {showLabels && (
+        <div className="p-3 space-y-3 animate-fade-in">
           {isClient ? (
             <>
               <div className="rounded-2xl p-4 bg-gradient-soft border border-accent">
@@ -240,5 +259,6 @@ export function Sidebar({
         </div>
       )}
     </aside>
+  </TooltipProvider>
   );
 }
