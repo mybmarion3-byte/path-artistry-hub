@@ -1253,6 +1253,11 @@ function StepAddress({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [geoInfo, setGeoInfo] = useState<{
+    accuracyM: number;
+    zone: string;
+    tier: "high" | "medium" | "low" | "very-low";
+  } | null>(null);
 
   useEffect(() => {
     if (addressId === "custom") customRef.current?.focus();
@@ -1266,6 +1271,7 @@ function StepAddress({
       setNewKind("home");
       setSuggestions([]);
       setShowSuggestions(false);
+      setGeoInfo(null);
     }
   }, [isCreatingAddress, suggestedLabel]);
 
@@ -1280,20 +1286,55 @@ function StepAddress({
     setSuggestions(matched);
   }, [newAddress]);
 
-  async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  async function reverseGeocodeRaw(lat: number, lon: number): Promise<any | null> {
     try {
       const res = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=fr`,
       );
       if (!res.ok) return null;
-      const data = await res.json();
-      const street = [data.streetNumber, data.streetName].filter(Boolean).join(" ");
-      const cityLine = [data.postcode, data.city || data.locality].filter(Boolean).join(" ");
-      const full = [street, cityLine].filter(Boolean).join(", ");
-      return full || data.localityInfo?.administrative?.[0]?.name || null;
+      return await res.json();
     } catch {
       return null;
     }
+  }
+
+  function formatAddressForTier(data: any, tier: "high" | "medium" | "low" | "very-low"): string {
+    const street = [data?.streetNumber, data?.streetName].filter(Boolean).join(" ");
+    const locality = data?.locality || data?.city || "";
+    const postcode = data?.postcode || "";
+    const region = data?.principalSubdivision || "";
+    const cityLine = [postcode, locality].filter(Boolean).join(" ");
+
+    if (tier === "high" && street) {
+      return [street, cityLine].filter(Boolean).join(", ");
+    }
+    if (tier === "medium") {
+      // Rue connue mais sans n° fiable → on garde rue + ville
+      const streetName = data?.streetName || "";
+      return [streetName, cityLine].filter(Boolean).join(", ") || cityLine;
+    }
+    if (tier === "low") {
+      return cityLine || locality;
+    }
+    // very-low → région / ville large
+    return [locality, region].filter(Boolean).join(", ") || region;
+  }
+
+  function tierForAccuracy(acc: number): "high" | "medium" | "low" | "very-low" {
+    if (acc <= 50) return "high";
+    if (acc <= 500) return "medium";
+    if (acc <= 2000) return "low";
+    return "very-low";
+  }
+
+  function zoneLabelForTier(tier: "high" | "medium" | "low" | "very-low"): string {
+    return tier === "high"
+      ? "Adresse exacte"
+      : tier === "medium"
+      ? "Rue / quartier"
+      : tier === "low"
+      ? "Code postal / ville"
+      : "Zone large";
   }
 
   function useCurrentLocation() {
@@ -1308,24 +1349,44 @@ function StepAddress({
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const formatted = await reverseGeocode(latitude, longitude);
-        if (formatted) {
-          setNewAddress(formatted);
-          toast.success("Position détectée", { description: formatted });
-        } else {
-          // Fallback: coordonnées brutes si reverse-geocode échoue
-          const coords = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          setNewAddress(coords);
+        const { latitude, longitude, accuracy } = pos.coords;
+        const acc = Math.max(1, Math.round(accuracy));
+        const tier = tierForAccuracy(acc);
+        const data = await reverseGeocodeRaw(latitude, longitude);
+
+        let filled = "";
+        if (data) {
+          filled = formatAddressForTier(data, tier);
+        }
+
+        if (!filled) {
+          filled = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
           toast.warning("Adresse non identifiée", {
             description: "Coordonnées utilisées — vous pouvez les ajuster manuellement.",
           });
+        } else {
+          const zone = zoneLabelForTier(tier);
+          if (tier === "high") {
+            toast.success("Adresse précise détectée", { description: `± ${acc} m — ${zone}` });
+          } else {
+            toast.warning("Position approximative", {
+              description: `± ${acc} m — ${zone}. Complétez les détails manquants.`,
+            });
+          }
         }
+
+        setNewAddress(filled);
+        setGeoInfo({
+          accuracyM: acc,
+          zone: zoneLabelForTier(tier),
+          tier,
+        });
         setLocating(false);
         setShowSuggestions(false);
       },
       (err) => {
         setLocating(false);
+        setGeoInfo(null);
         let title = "Localisation impossible";
         let description = "Saisissez votre adresse manuellement.";
         switch (err.code) {
@@ -1509,6 +1570,38 @@ function StepAddress({
             <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5" /> Autocomplétion temps réel
             </div>
+
+            {geoInfo && (
+              <div
+                className={`mt-2 rounded-xl border p-2.5 flex items-start gap-2 text-xs ${
+                  geoInfo.tier === "high"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : geoInfo.tier === "medium"
+                    ? "bg-amber-50 border-amber-200 text-amber-800"
+                    : "bg-orange-50 border-orange-200 text-orange-800"
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold flex items-center gap-1.5 flex-wrap">
+                    Précision GPS · ± {geoInfo.accuracyM} m
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-white/60 px-1.5 py-0.5 rounded-full">
+                      {geoInfo.tier === "high"
+                        ? "Fiable"
+                        : geoInfo.tier === "medium"
+                        ? "Moyenne"
+                        : geoInfo.tier === "low"
+                        ? "Approximative"
+                        : "Très large"}
+                    </span>
+                  </div>
+                  <div className="opacity-80 mt-0.5">
+                    Zone : <strong>{geoInfo.zone}</strong>
+                    {geoInfo.tier !== "high" && " — complétez le numéro et la rue à la main."}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
