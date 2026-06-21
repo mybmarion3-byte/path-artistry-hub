@@ -4,7 +4,7 @@ import { useBooker, getPro } from "@/lib/booker-store";
 import { CreditCard, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/paiements")({
-  head: () => ({ meta: [{ title: "Paiements — Booker 2030" }] }),
+  head: () => ({ meta: [{ title: "Paiements — Booker NoW" }] }),
   component: Page,
 });
 
