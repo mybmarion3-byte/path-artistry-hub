@@ -1286,20 +1286,55 @@ function StepAddress({
     setSuggestions(matched);
   }, [newAddress]);
 
-  async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  async function reverseGeocodeRaw(lat: number, lon: number): Promise<any | null> {
     try {
       const res = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=fr`,
       );
       if (!res.ok) return null;
-      const data = await res.json();
-      const street = [data.streetNumber, data.streetName].filter(Boolean).join(" ");
-      const cityLine = [data.postcode, data.city || data.locality].filter(Boolean).join(" ");
-      const full = [street, cityLine].filter(Boolean).join(", ");
-      return full || data.localityInfo?.administrative?.[0]?.name || null;
+      return await res.json();
     } catch {
       return null;
     }
+  }
+
+  function formatAddressForTier(data: any, tier: "high" | "medium" | "low" | "very-low"): string {
+    const street = [data?.streetNumber, data?.streetName].filter(Boolean).join(" ");
+    const locality = data?.locality || data?.city || "";
+    const postcode = data?.postcode || "";
+    const region = data?.principalSubdivision || "";
+    const cityLine = [postcode, locality].filter(Boolean).join(" ");
+
+    if (tier === "high" && street) {
+      return [street, cityLine].filter(Boolean).join(", ");
+    }
+    if (tier === "medium") {
+      // Rue connue mais sans n° fiable → on garde rue + ville
+      const streetName = data?.streetName || "";
+      return [streetName, cityLine].filter(Boolean).join(", ") || cityLine;
+    }
+    if (tier === "low") {
+      return cityLine || locality;
+    }
+    // very-low → région / ville large
+    return [locality, region].filter(Boolean).join(", ") || region;
+  }
+
+  function tierForAccuracy(acc: number): "high" | "medium" | "low" | "very-low" {
+    if (acc <= 50) return "high";
+    if (acc <= 500) return "medium";
+    if (acc <= 2000) return "low";
+    return "very-low";
+  }
+
+  function zoneLabelForTier(tier: "high" | "medium" | "low" | "very-low"): string {
+    return tier === "high"
+      ? "Adresse exacte"
+      : tier === "medium"
+      ? "Rue / quartier"
+      : tier === "low"
+      ? "Code postal / ville"
+      : "Zone large";
   }
 
   function useCurrentLocation() {
@@ -1314,24 +1349,44 @@ function StepAddress({
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const formatted = await reverseGeocode(latitude, longitude);
-        if (formatted) {
-          setNewAddress(formatted);
-          toast.success("Position détectée", { description: formatted });
-        } else {
-          // Fallback: coordonnées brutes si reverse-geocode échoue
-          const coords = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          setNewAddress(coords);
+        const { latitude, longitude, accuracy } = pos.coords;
+        const acc = Math.max(1, Math.round(accuracy));
+        const tier = tierForAccuracy(acc);
+        const data = await reverseGeocodeRaw(latitude, longitude);
+
+        let filled = "";
+        if (data) {
+          filled = formatAddressForTier(data, tier);
+        }
+
+        if (!filled) {
+          filled = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
           toast.warning("Adresse non identifiée", {
             description: "Coordonnées utilisées — vous pouvez les ajuster manuellement.",
           });
+        } else {
+          const zone = zoneLabelForTier(tier);
+          if (tier === "high") {
+            toast.success("Adresse précise détectée", { description: `± ${acc} m — ${zone}` });
+          } else {
+            toast.warning("Position approximative", {
+              description: `± ${acc} m — ${zone}. Complétez les détails manquants.`,
+            });
+          }
         }
+
+        setNewAddress(filled);
+        setGeoInfo({
+          accuracyM: acc,
+          zone: zoneLabelForTier(tier),
+          tier,
+        });
         setLocating(false);
         setShowSuggestions(false);
       },
       (err) => {
         setLocating(false);
+        setGeoInfo(null);
         let title = "Localisation impossible";
         let description = "Saisissez votre adresse manuellement.";
         switch (err.code) {
