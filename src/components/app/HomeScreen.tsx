@@ -1280,15 +1280,73 @@ function StepAddress({
     setSuggestions(matched);
   }, [newAddress]);
 
+  async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=fr`,
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const street = [data.streetNumber, data.streetName].filter(Boolean).join(" ");
+      const cityLine = [data.postcode, data.city || data.locality].filter(Boolean).join(" ");
+      const full = [street, cityLine].filter(Boolean).join(", ");
+      return full || data.localityInfo?.administrative?.[0]?.name || null;
+    } catch {
+      return null;
+    }
+  }
+
   function useCurrentLocation() {
-    setLocating(true);
-    // Simulation d'un appel Geolocation API
-    setTimeout(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Géolocalisation indisponible", {
+        description: "Votre navigateur ne supporte pas la localisation. Adresse par défaut utilisée.",
+      });
       setNewAddress(CURRENT_LOCATION_LABEL);
-      setLocating(false);
-      setShowSuggestions(false);
-      toast.success("Position détectée");
-    }, 700);
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const formatted = await reverseGeocode(latitude, longitude);
+        if (formatted) {
+          setNewAddress(formatted);
+          toast.success("Position détectée", { description: formatted });
+        } else {
+          // Fallback: coordonnées brutes si reverse-geocode échoue
+          const coords = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          setNewAddress(coords);
+          toast.warning("Adresse non identifiée", {
+            description: "Coordonnées utilisées — vous pouvez les ajuster manuellement.",
+          });
+        }
+        setLocating(false);
+        setShowSuggestions(false);
+      },
+      (err) => {
+        setLocating(false);
+        let title = "Localisation impossible";
+        let description = "Saisissez votre adresse manuellement.";
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            title = "Accès à la position refusé";
+            description = "Autorisez la géolocalisation dans votre navigateur, ou saisissez l'adresse à la main.";
+            break;
+          case err.POSITION_UNAVAILABLE:
+            title = "Position indisponible";
+            description = "Impossible d'obtenir votre position actuelle. Adresse de référence proposée.";
+            setNewAddress(CURRENT_LOCATION_LABEL);
+            break;
+          case err.TIMEOUT:
+            title = "Délai dépassé";
+            description = "La localisation a pris trop de temps. Réessayez ou saisissez l'adresse.";
+            break;
+        }
+        toast.error(title, { description });
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
+    );
   }
 
   function applySavedAddress(a: ClientAddress) {
