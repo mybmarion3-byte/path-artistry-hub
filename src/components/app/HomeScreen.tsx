@@ -800,6 +800,20 @@ function ProfileSheet(props: {
 
 /* -------------------- Booking Dialog (3 steps) -------------------- */
 
+/* -------------------- Booking dialog (adaptive multi-step) -------------------- */
+
+type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
+
+function buildSteps(mode: Mode): StepKey[] {
+  if (mode === "home") return ["service", "mode", "address", "slot", "info", "pay"];
+  if (mode === "studio") return ["service", "mode", "business", "collaborator", "slot", "info", "pay"];
+  return ["service", "mode", "slot", "info", "pay"]; // video
+}
+
+function modeLabel(m: Mode) {
+  return m === "home" ? "À domicile" : m === "studio" ? "En établissement" : "En visio";
+}
+
 function BookingDialog({
   state,
   onClose,
@@ -810,51 +824,124 @@ function BookingDialog({
   const addBooking = useBooker((s) => s.addBooking);
   const navigate = useNavigate();
   const pushNotification = useBooker((s) => s.pushNotification);
-  const [step, setStep] = useState(1);
+
+  const [stepIdx, setStepIdx] = useState(0);
   const [serviceId, setServiceId] = useState<string | undefined>(undefined);
   const [slotIso, setSlotIso] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>("home");
+  const [addressId, setAddressId] = useState<string | undefined>("a1");
+  const [customAddress, setCustomAddress] = useState("");
+  const [businessId, setBusinessId] = useState<string | undefined>(undefined);
+  const [collaboratorId, setCollaboratorId] = useState<string | "any">("any");
+  const [phone, setPhone] = useState("");
+  const [digicode, setDigicode] = useState("");
+  const [comments, setComments] = useState("");
 
   useEffect(() => {
     if (state) {
-      setStep(1);
+      setStepIdx(0);
       setServiceId(state.service?.id ?? state.pro.services[0].id);
       setSlotIso(state.slotIso);
-      setMode(state.pro.modes[0]);
+      const defaultMode: Mode = state.pro.modes.includes("home")
+        ? "home"
+        : state.pro.modes[0];
+      setMode(defaultMode);
+      setAddressId("a1");
+      setCustomAddress("");
+      const bizForPro = getBusinessesForPro(state.pro.id);
+      setBusinessId(bizForPro[0]?.id);
+      setCollaboratorId("any");
+      setPhone("");
+      setDigicode("");
+      setComments("");
     }
   }, [state?.pro.id, state?.service?.id, state?.slotIso]);
 
-  const proId = state?.pro.id ?? PROS[0].id;
-  const slots = useBookerSlots(proId);
+  const sourcePro = state?.pro;
+  const proForSlots = useMemo(() => {
+    if (mode === "studio" && businessId && collaboratorId !== "any") {
+      return getPro(collaboratorId);
+    }
+    return sourcePro ?? PROS[0];
+  }, [mode, businessId, collaboratorId, sourcePro]);
+  const slots = useBookerSlots(proForSlots.id);
 
-  if (!state) return null;
-  const pro = state.pro;
+  const steps = useMemo(() => buildSteps(mode), [mode]);
+  const currentStep = steps[stepIdx];
+  const isLast = stepIdx === steps.length - 1;
+
+  if (!state || !sourcePro) return null;
+  const pro = sourcePro;
   const service = pro.services.find((s) => s.id === serviceId) ?? pro.services[0];
   const slot = slots.find((s) => s.iso === slotIso) ?? slots[0];
+
+  const selectedBusiness: BusinessLocation | undefined =
+    businessId ? BUSINESSES.find((b) => b.id === businessId) : undefined;
+  const selectedAddress: ClientAddress | undefined =
+    addressId ? DEFAULT_ADDRESSES.find((a) => a.id === addressId) : undefined;
+  const finalAddress =
+    mode === "home"
+      ? (addressId === "custom" ? customAddress : selectedAddress?.address) ?? ""
+      : "";
+
+  const collaboratorPro =
+    mode === "studio" && collaboratorId !== "any"
+      ? getPro(collaboratorId)
+      : undefined;
+
+  const distanceKm =
+    mode === "home"
+      ? Math.max(0.4, pro.distanceKm + (addressId === "a2" ? 1.8 : addressId === "a3" ? 4.2 : 0))
+      : selectedBusiness?.distanceKm ?? 0;
+  const etaMin = Math.max(5, Math.round(distanceKm * 6 + 6));
 
   const serviceFee = Math.round(service.price * 0.05);
   const total = service.price + serviceFee;
 
+  // Validation per step
+  const canContinue = (() => {
+    switch (currentStep) {
+      case "service": return !!serviceId;
+      case "mode": return !!mode && pro.modes.includes(mode === "studio" ? "studio" : mode === "video" ? "video" : "home");
+      case "address": return mode !== "home" || (addressId === "custom" ? customAddress.trim().length > 3 : !!addressId);
+      case "business": return !!businessId;
+      case "collaborator": return !!collaboratorId;
+      case "slot": return !!slotIso;
+      case "info": return phone.trim().length >= 6;
+      default: return true;
+    }
+  })();
+
   function confirm() {
+    const bookedPro = collaboratorPro ?? pro;
     addBooking({
-      proId: pro.id,
+      proId: bookedPro.id,
       serviceId: service.id,
       serviceName: service.name,
       mode,
       date: slot?.iso.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
       time: slot?.label ?? "—",
       price: total,
+      address: mode === "home" ? finalAddress : selectedBusiness?.address,
+      businessName: mode === "studio" ? selectedBusiness?.name : undefined,
+      collaboratorName: mode === "studio" ? bookedPro.name : undefined,
+      phone,
+      digicode: mode === "home" ? digicode : undefined,
+      comments,
     });
     pushNotification({
-      title: `Réservation confirmée avec ${pro.name.split(" ")[0]}`,
-      body: `${service.name} — ${slot?.label}`,
+      title: `Réservation confirmée avec ${bookedPro.name.split(" ")[0]}`,
+      body: `${service.name} — ${slot?.label}${mode === "studio" && selectedBusiness ? ` · ${selectedBusiness.name}` : ""}`,
     });
     toast.success("Réservation confirmée !", {
-      description: `${pro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
+      description: `${bookedPro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
     });
     onClose();
     navigate({ to: "/reservations" });
   }
+
+  const businessesForPro = getBusinessesForPro(pro.id);
+  const collaboratorsForBusiness = businessId ? getProsForBusiness(businessId) : [];
 
   return (
     <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
@@ -868,98 +955,117 @@ function BookingDialog({
                 <div className="text-xs font-normal text-muted-foreground">{pro.job}</div>
               </div>
             </DialogTitle>
-            <DialogDescription className="sr-only">Tunnel de réservation en 3 étapes</DialogDescription>
+            <DialogDescription className="sr-only">
+              Tunnel de réservation adaptatif — étape {stepIdx + 1} sur {steps.length}
+            </DialogDescription>
           </DialogHeader>
-          <Stepper step={step} total={3} />
+          <Stepper step={stepIdx + 1} total={steps.length} />
         </div>
 
         <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {step === 1 && (
-            <div>
-              <div className="text-sm font-semibold mb-2">Prestation</div>
-              <div className="space-y-2">
-                {pro.services.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setServiceId(s.id)}
-                    className={`w-full flex justify-between items-center p-3 rounded-xl border text-left ${
-                      serviceId === s.id ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
-                    }`}
-                  >
-                    <div>
-                      <div className="font-medium text-sm">{s.name}</div>
-                      <div className="text-xs text-muted-foreground">{s.duration} min</div>
-                    </div>
-                    <div className="font-semibold">{s.price} €</div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="text-sm font-semibold mt-5 mb-2">Mode</div>
-              <div className="flex gap-2">
-                {pro.modes.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    className={`px-3 py-2 rounded-xl border text-sm flex items-center gap-1.5 ${
-                      mode === m ? "border-primary bg-accent" : "border-border"
-                    }`}
-                  >
-                    {m === "home" ? "À domicile" : m === "studio" ? "Studio" : "Visio"}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {currentStep === "service" && (
+            <StepService
+              services={pro.services}
+              serviceId={serviceId}
+              onSelect={setServiceId}
+            />
           )}
 
-          {step === 2 && (
-            <div>
-              <div className="text-sm font-semibold mb-2">Choisir un créneau</div>
-              <div className="grid grid-cols-3 gap-2">
-                {slots.map((s) => (
-                  <button
-                    key={s.iso}
-                    onClick={() => setSlotIso(s.iso)}
-                    className={`py-2 rounded-xl text-xs font-medium border ${
-                      slotIso === s.iso ? "border-primary bg-accent text-primary" : "border-border hover:bg-secondary"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {currentStep === "mode" && (
+            <StepMode
+              available={pro.modes}
+              mode={mode}
+              hasEstablishment={businessesForPro.length > 0}
+              onPick={setMode}
+            />
           )}
 
-          {step === 3 && (
-            <div>
-              <div className="text-sm font-semibold mb-3">Récapitulatif</div>
-              <div className="rounded-2xl border border-border divide-y divide-border text-sm">
-                <Row label="Pro" value={pro.name} />
-                <Row label="Prestation" value={`${service.name} (${service.duration} min)`} />
-                <Row label="Créneau" value={slot?.label ?? "—"} />
-                <Row label="Mode" value={mode === "home" ? "À domicile" : mode === "studio" ? "Studio" : "Visio"} />
-                <Row label="Prix prestation" value={`${service.price} €`} />
-                <Row label="Frais de service" value={`${serviceFee} €`} />
-                <Row label="Total" value={`${total} €`} bold />
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Paiement sécurisé à la réservation. Annulation gratuite jusqu'à 4 h avant.
-              </p>
-            </div>
+          {currentStep === "address" && (
+            <StepAddress
+              addresses={DEFAULT_ADDRESSES}
+              addressId={addressId}
+              customAddress={customAddress}
+              onSelect={setAddressId}
+              onCustomChange={setCustomAddress}
+              distanceKm={distanceKm}
+              etaMin={etaMin}
+            />
+          )}
+
+          {currentStep === "business" && (
+            <StepBusiness
+              list={businessesForPro.length > 0 ? businessesForPro : BUSINESSES}
+              selectedId={businessId}
+              onSelect={(id) => {
+                setBusinessId(id);
+                setCollaboratorId("any");
+              }}
+            />
+          )}
+
+          {currentStep === "collaborator" && (
+            <StepCollaborator
+              pros={collaboratorsForBusiness}
+              selectedId={collaboratorId}
+              onSelect={setCollaboratorId}
+            />
+          )}
+
+          {currentStep === "slot" && (
+            <StepSlot
+              slots={slots}
+              slotIso={slotIso}
+              onSelect={setSlotIso}
+              hint={
+                mode === "studio" && selectedBusiness
+                  ? `Agenda de ${selectedBusiness.name}`
+                  : mode === "video"
+                  ? "Créneaux visio disponibles"
+                  : "Prochains créneaux du pro"
+              }
+            />
+          )}
+
+          {currentStep === "info" && (
+            <StepInfo
+              mode={mode}
+              phone={phone}
+              digicode={digicode}
+              comments={comments}
+              onPhone={setPhone}
+              onDigicode={setDigicode}
+              onComments={setComments}
+            />
+          )}
+
+          {currentStep === "pay" && (
+            <StepPay
+              mode={mode}
+              pro={collaboratorPro ?? pro}
+              service={service}
+              slotLabel={slot?.label ?? "—"}
+              address={mode === "home" ? finalAddress : undefined}
+              business={mode === "studio" ? selectedBusiness : undefined}
+              etaMin={mode === "home" ? etaMin : undefined}
+              serviceFee={serviceFee}
+              total={total}
+            />
           )}
         </div>
 
         <div className="p-4 border-t border-border flex justify-between gap-2">
-          {step > 1 ? (
-            <button onClick={() => setStep(step - 1)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-secondary">
+          {stepIdx > 0 ? (
+            <button
+              onClick={() => setStepIdx(stepIdx - 1)}
+              className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-secondary"
+            >
               Retour
             </button>
           ) : <span />}
-          {step < 3 ? (
+          {!isLast ? (
             <button
-              onClick={() => setStep(step + 1)}
-              disabled={step === 2 && !slotIso}
+              onClick={() => setStepIdx(stepIdx + 1)}
+              disabled={!canContinue}
               className="flex-1 bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-glow flex items-center justify-center gap-2 disabled:opacity-50"
             >
               Continuer <ArrowRight className="w-4 h-4" />
@@ -969,7 +1075,7 @@ function BookingDialog({
               onClick={confirm}
               className="flex-1 bg-gradient-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-glow flex items-center justify-center gap-2"
             >
-              <Check className="w-4 h-4" /> Confirmer — {total} €
+              <Check className="w-4 h-4" /> Payer {total} €
             </button>
           )}
         </div>
@@ -977,6 +1083,357 @@ function BookingDialog({
     </Dialog>
   );
 }
+
+/* -------------------- Step components -------------------- */
+
+function StepService({
+  services, serviceId, onSelect,
+}: { services: Service[]; serviceId?: string; onSelect: (id: string) => void }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2">Choisir la prestation</div>
+      <div className="space-y-2">
+        {services.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSelect(s.id)}
+            className={`w-full flex justify-between items-center p-3 rounded-2xl border text-left transition ${
+              serviceId === s.id ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+            }`}
+          >
+            <div>
+              <div className="font-medium text-sm">{s.name}</div>
+              <div className="text-xs text-muted-foreground">{s.duration} min</div>
+            </div>
+            <div className="font-semibold">{s.price} €</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StepMode({
+  available, mode, hasEstablishment, onPick,
+}: { available: Mode[]; mode: Mode; hasEstablishment: boolean; onPick: (m: Mode) => void }) {
+  const options: { m: Mode; emoji: string; label: string; sub: string }[] = [
+    { m: "home", emoji: "🏠", label: "À domicile", sub: "Le pro vient chez vous" },
+    { m: "studio", emoji: "🏢", label: "En établissement", sub: "Vous vous déplacez" },
+    { m: "video", emoji: "💻", label: "En visio", sub: "Sans déplacement" },
+  ];
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-1">Comment souhaitez-vous être reçu&nbsp;?</div>
+      <div className="text-xs text-muted-foreground mb-3">Une question, un parcours sur mesure.</div>
+      <div className="space-y-2">
+        {options.map((o) => {
+          const enabled =
+            o.m === "studio" ? hasEstablishment : available.includes(o.m);
+          const active = mode === o.m;
+          return (
+            <button
+              key={o.m}
+              disabled={!enabled}
+              onClick={() => onPick(o.m)}
+              className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border text-left transition ${
+                active
+                  ? "border-primary bg-accent/40 shadow-soft"
+                  : enabled
+                  ? "border-border hover:border-primary/40 hover:bg-secondary"
+                  : "border-border/50 bg-secondary/40 text-muted-foreground/60 cursor-not-allowed"
+              }`}
+            >
+              <span className="text-2xl leading-none">{o.emoji}</span>
+              <div className="flex-1">
+                <div className="text-sm font-semibold">{o.label}</div>
+                <div className="text-xs text-muted-foreground">{o.sub}</div>
+              </div>
+              {active && <Check className="w-4 h-4 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepAddress({
+  addresses, addressId, customAddress, onSelect, onCustomChange, distanceKm, etaMin,
+}: {
+  addresses: ClientAddress[];
+  addressId?: string;
+  customAddress: string;
+  onSelect: (id: string) => void;
+  onCustomChange: (v: string) => void;
+  distanceKm: number;
+  etaMin: number;
+}) {
+  const iconFor = (k: ClientAddress["kind"]) =>
+    k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
+      <div className="space-y-2">
+        {addresses.map((a) => {
+          const Icon = iconFor(a.kind);
+          const active = addressId === a.id;
+          return (
+            <button
+              key={a.id}
+              onClick={() => onSelect(a.id)}
+              className={`w-full flex items-start gap-3 p-3 rounded-2xl border text-left transition ${
+                active ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold">{a.label}</div>
+                <div className="text-xs text-muted-foreground truncate">{a.address}</div>
+              </div>
+              {active && <Check className="w-4 h-4 text-primary mt-1" />}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => onSelect("custom")}
+          className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
+            addressId === "custom" ? "border-primary bg-accent/40" : "border-dashed border-border hover:bg-secondary"
+          }`}
+        >
+          <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+            <Plus className="w-4 h-4 text-primary" />
+          </div>
+          <span className="text-sm font-semibold">Ajouter une nouvelle adresse</span>
+        </button>
+        {addressId === "custom" && (
+          <input
+            value={customAddress}
+            onChange={(e) => onCustomChange(e.target.value)}
+            placeholder="Ex : 5 rue de la Paix, 75002 Paris"
+            className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
+          />
+        )}
+      </div>
+
+      {(addressId && (addressId !== "custom" || customAddress.length > 3)) && (
+        <div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200/70 p-3 text-xs text-emerald-700 flex items-center gap-4">
+          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {distanceKm.toFixed(1)} km</div>
+          <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> ~{etaMin} min</div>
+          <div className="flex items-center gap-1.5 ml-auto"><ShieldCheck className="w-3.5 h-3.5" /> Zone couverte</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepBusiness({
+  list, selectedId, onSelect,
+}: { list: BusinessLocation[]; selectedId?: string; onSelect: (id: string) => void }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2">Choisir l'établissement</div>
+      <div className="space-y-2">
+        {list.map((b) => {
+          const active = selectedId === b.id;
+          return (
+            <button
+              key={b.id}
+              onClick={() => onSelect(b.id)}
+              className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
+                active ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+              }`}
+            >
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${b.gradient} flex items-center justify-center text-2xl shrink-0`}>
+                {b.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{b.name}</div>
+                <div className="text-xs text-muted-foreground truncate">{b.address}</div>
+                <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {b.distanceKm} km</span>
+                  <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                    <Clock className="w-3 h-3" /> {b.nextSlot}
+                  </span>
+                </div>
+              </div>
+              {active && <Check className="w-4 h-4 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepCollaborator({
+  pros, selectedId, onSelect,
+}: { pros: Pro[]; selectedId: string | "any"; onSelect: (id: string | "any") => void }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2">Choisir un collaborateur</div>
+      <button
+        onClick={() => onSelect("any")}
+        className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left mb-2 transition ${
+          selectedId === "any" ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+        }`}
+      >
+        <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground">
+          <Users className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <div className="text-sm font-semibold">Peu importe</div>
+          <div className="text-xs text-muted-foreground">Premier disponible · gain de temps</div>
+        </div>
+        {selectedId === "any" && <Check className="w-4 h-4 text-primary" />}
+      </button>
+      <div className="space-y-2">
+        {pros.map((p) => {
+          const active = selectedId === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p.id)}
+              className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
+                active ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+              }`}
+            >
+              <img src={p.avatar} alt={p.name} className="w-12 h-12 rounded-full object-cover" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{p.name}</div>
+                <div className="text-xs text-muted-foreground truncate">{p.specialty}</div>
+                <div className="flex items-center gap-3 mt-0.5 text-[11px]">
+                  <span className="flex items-center gap-1"><Star className="w-3 h-3 fill-warning text-warning" /> {p.rating.toFixed(1)}</span>
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {p.availability === "now" ? "Maintenant" : p.availability}
+                  </span>
+                </div>
+              </div>
+              {active && <Check className="w-4 h-4 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepSlot({
+  slots, slotIso, onSelect, hint,
+}: { slots: { iso: string; label: string }[]; slotIso?: string; onSelect: (iso: string) => void; hint: string }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-1">Choisir un créneau</div>
+      <div className="text-xs text-muted-foreground mb-3">{hint}</div>
+      <div className="grid grid-cols-3 gap-2">
+        {slots.map((s) => {
+          const active = slotIso === s.iso;
+          const now = s.label === "Maintenant";
+          return (
+            <button
+              key={s.iso}
+              onClick={() => onSelect(s.iso)}
+              className={`py-2.5 rounded-2xl text-xs font-semibold border transition ${
+                active
+                  ? now
+                    ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.35)]"
+                    : "border-primary bg-accent text-primary"
+                  : "border-border hover:bg-secondary"
+              }`}
+            >
+              {now ? <span className="inline-flex items-center gap-1"><Zap className="w-3 h-3 fill-current" />Maintenant</span> : s.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepInfo({
+  mode, phone, digicode, comments, onPhone, onDigicode, onComments,
+}: {
+  mode: Mode; phone: string; digicode: string; comments: string;
+  onPhone: (v: string) => void; onDigicode: (v: string) => void; onComments: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="text-sm font-semibold">Informations complémentaires</div>
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
+          <Phone className="w-3.5 h-3.5" /> Téléphone
+        </span>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => onPhone(e.target.value)}
+          placeholder="06 12 34 56 78"
+          className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
+        />
+      </label>
+      {mode === "home" && (
+        <label className="block">
+          <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
+            <Lock className="w-3.5 h-3.5" /> Digicode (optionnel)
+          </span>
+          <input
+            value={digicode}
+            onChange={(e) => onDigicode(e.target.value)}
+            placeholder="Ex : 1234A · 3e étage gauche"
+            className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
+          />
+        </label>
+      )}
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
+          <MessageSquare className="w-3.5 h-3.5" /> Commentaires (optionnel)
+        </span>
+        <textarea
+          value={comments}
+          onChange={(e) => onComments(e.target.value)}
+          rows={3}
+          placeholder="Précisions pour le professionnel…"
+          className="w-full px-4 py-3 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary resize-none"
+        />
+      </label>
+    </div>
+  );
+}
+
+function StepPay({
+  mode, pro, service, slotLabel, address, business, etaMin, serviceFee, total,
+}: {
+  mode: Mode; pro: Pro; service: Service; slotLabel: string;
+  address?: string; business?: BusinessLocation; etaMin?: number;
+  serviceFee: number; total: number;
+}) {
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-3">Récapitulatif & paiement</div>
+      <div className="rounded-2xl border border-border divide-y divide-border text-sm overflow-hidden">
+        {mode === "studio" && business && <Row label="Établissement" value={business.name} />}
+        {mode === "studio" && <Row label="Collaborateur" value={pro.name} />}
+        {mode !== "studio" && <Row label="Professionnel" value={pro.name} />}
+        <Row label="Prestation" value={`${service.name} (${service.duration} min)`} />
+        {mode === "home" && address && <Row label="Adresse" value={address} />}
+        <Row label="Créneau" value={slotLabel} />
+        {mode === "home" && etaMin !== undefined && <Row label="Temps d'arrivée" value={`~${etaMin} min`} />}
+        <Row label="Mode" value={modeLabel(mode)} />
+        <Row label="Prix prestation" value={`${service.price} €`} />
+        <Row label="Frais de service" value={`${serviceFee} €`} />
+        <Row label="Total" value={`${total} €`} bold />
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <CreditCard className="w-3.5 h-3.5" />
+        Paiement sécurisé · Annulation gratuite jusqu'à 4 h avant.
+      </div>
+    </div>
+  );
+}
+
+
 
 function useBookerSlots(proId: string) {
   return useMemo(() => {
