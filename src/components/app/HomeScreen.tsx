@@ -903,7 +903,7 @@ function BookingDialog({
   }, [mode, businessId, collaboratorId, sourcePro]);
   const slots = useBookerSlots(proForSlots.id);
 
-  const steps = useMemo(() => buildSteps(mode), [mode]);
+  const steps = useMemo(() => buildSteps(mode, sourcePro?.modes ?? []), [mode, sourcePro?.modes]);
   const currentStep = steps[stepIdx];
   const isLast = stepIdx === steps.length - 1;
 
