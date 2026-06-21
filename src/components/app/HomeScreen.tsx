@@ -851,8 +851,9 @@ function BookingDialog({
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
-      setPhone("");
-      setDigicode("");
+      // Pré-rempli depuis le compte client
+      setPhone(ACCOUNT_PROFILE.phone);
+      setDigicode(ACCOUNT_PROFILE.digicode);
       setComments("");
     }
   }, [state?.pro.id, state?.service?.id, state?.slotIso]);
