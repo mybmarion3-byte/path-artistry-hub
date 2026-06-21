@@ -288,7 +288,17 @@ function ProListColumn(props: {
                 isNow ? "text-emerald-600" : r.statusTone === "soon" ? "text-primary" : "text-muted-foreground"
               }`}>
                 {isNow ? (
-                  <><Zap className="w-4 h-4 fill-emerald-500 text-emerald-500" /> Disponible dans {etaMin} min</>
+                  <>
+                    <Zap className="w-4 h-4 fill-emerald-500 text-emerald-500" />
+                    Arrive dans {etaMin} min
+                    <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600/80">
+                      <span className="relative flex w-1.5 h-1.5">
+                        <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                        <span className="relative rounded-full w-1.5 h-1.5 bg-emerald-500" />
+                      </span>
+                      Live
+                    </span>
+                  </>
                 ) : (
                   <><Clock className="w-3.5 h-3.5" /> {r.statusLabel}</>
                 )}
