@@ -1684,13 +1684,40 @@ function StepAddress({
         </button>
       </div>
 
-      {addressId && addressId !== "custom" && (
-        <div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200/70 p-3 text-xs text-emerald-700 flex items-center gap-4">
-          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {distanceKm.toFixed(1)} km</div>
-          <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> ~{etaMin} min</div>
-          <div className="flex items-center gap-1.5 ml-auto"><ShieldCheck className="w-3.5 h-3.5" /> Zone couverte</div>
-        </div>
-      )}
+      {addressId && addressId !== "custom" && (() => {
+        const minRange = Math.max(5, Math.round(etaMin - Math.max(2, etaMin * 0.15)));
+        const maxRange = Math.round(etaMin + Math.max(3, etaMin * 0.25));
+        return (
+          <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-emerald-800 dark:text-emerald-300 space-y-3 animate-fade-in">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">
+                  Temps d'arrivée estimé
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold tracking-tight">{etaMin} min</span>
+                  <span className="text-xs opacity-80">(± {distanceKm.toFixed(1)} km)</span>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                <ShieldCheck className="w-3.5 h-3.5" /> Zone couverte
+              </span>
+            </div>
+
+            <div className="h-[2px] bg-emerald-500/10 rounded-full overflow-hidden relative">
+              <div className="absolute inset-y-0 left-0 bg-emerald-500 w-[65%] rounded-full animate-pulse" />
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-0.5">
+              <span className="flex items-center gap-1.5 opacity-90">
+                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Plage estimée : <strong className="font-semibold">{minRange} à {maxRange} min</strong>
+              </span>
+              <span className="opacity-75 text-[11px]">Trajet optimal</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
