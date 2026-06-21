@@ -4,7 +4,7 @@ import { useBooker, getPro } from "@/lib/booker-store";
 import { Calendar, Clock, MapPin, X, Star } from "lucide-react";
 
 export const Route = createFileRoute("/reservations")({
-  head: () => ({ meta: [{ title: "Mes réservations — Booker NoW" }] }),
+  head: () => ({ meta: [{ title: "Mes réservations — Booker \Booker NoWnbsp;NoW" }] }),
   component: Page,
 });
 

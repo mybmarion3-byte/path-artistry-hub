@@ -5,7 +5,7 @@ import { HomeScreen } from "@/components/app/HomeScreen";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Booker NoW — Réservez vos pros à domicile" },
+      { title: "Booker \Booker NoWnbsp;NoW — Réservez vos pros à domicile" },
       { name: "description", content: "Trouvez et réservez en quelques secondes le pro parfait près de chez vous. Coiffure, sport, beauté, bien-être." },
     ],
   }),

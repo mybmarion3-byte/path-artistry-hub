@@ -5,7 +5,7 @@ import { Star } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/avis")({
-  head: () => ({ meta: [{ title: "Avis — Booker NoW" }] }),
+  head: () => ({ meta: [{ title: "Avis — Booker \Booker NoWnbsp;NoW" }] }),
   component: Page,
 });
 

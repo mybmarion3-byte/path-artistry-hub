@@ -4,7 +4,7 @@ import { PROS, useBooker } from "@/lib/booker-store";
 import { Heart, Star } from "lucide-react";
 
 export const Route = createFileRoute("/favoris")({
-  head: () => ({ meta: [{ title: "Favoris — Booker NoW" }] }),
+  head: () => ({ meta: [{ title: "Favoris — Booker \Booker NoWnbsp;NoW" }] }),
   component: Page,
 });
 
