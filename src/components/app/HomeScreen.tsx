@@ -1000,13 +1000,28 @@ function BookingDialog({
 
           {currentStep === "address" && (
             <StepAddress
-              addresses={DEFAULT_ADDRESSES}
+              addresses={localAddresses}
               addressId={addressId}
               customAddress={customAddress}
               onSelect={setAddressId}
               onCustomChange={setCustomAddress}
               distanceKm={distanceKm}
               etaMin={etaMin}
+              isCreatingAddress={isCreatingAddress}
+              onStartCreate={() => setIsCreatingAddress(true)}
+              onCancelCreate={() => setIsCreatingAddress(false)}
+              onSaveCreate={(label, address, kind) => {
+                const newAddr: ClientAddress = {
+                  id: "created-" + Date.now(),
+                  label,
+                  address,
+                  kind,
+                };
+                setLocalAddresses((prev) => [...prev, newAddr]);
+                setAddressId(newAddr.id);
+                setIsCreatingAddress(false);
+                toast.success("Adresse principale créée !");
+              }}
             />
           )}
 
