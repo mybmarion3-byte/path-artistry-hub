@@ -1570,6 +1570,38 @@ function StepAddress({
             <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5" /> Autocomplétion temps réel
             </div>
+
+            {geoInfo && (
+              <div
+                className={`mt-2 rounded-xl border p-2.5 flex items-start gap-2 text-xs ${
+                  geoInfo.tier === "high"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : geoInfo.tier === "medium"
+                    ? "bg-amber-50 border-amber-200 text-amber-800"
+                    : "bg-orange-50 border-orange-200 text-orange-800"
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold flex items-center gap-1.5 flex-wrap">
+                    Précision GPS · ± {geoInfo.accuracyM} m
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-white/60 px-1.5 py-0.5 rounded-full">
+                      {geoInfo.tier === "high"
+                        ? "Fiable"
+                        : geoInfo.tier === "medium"
+                        ? "Moyenne"
+                        : geoInfo.tier === "low"
+                        ? "Approximative"
+                        : "Très large"}
+                    </span>
+                  </div>
+                  <div className="opacity-80 mt-0.5">
+                    Zone : <strong>{geoInfo.zone}</strong>
+                    {geoInfo.tier !== "high" && " — complétez le numéro et la rue à la main."}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
