@@ -834,10 +834,11 @@ const ADDRESS_SUGGESTIONS_DB = [
 
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
-function buildSteps(mode: Mode): StepKey[] {
-  if (mode === "home") return ["service", "mode", "address", "slot", "info", "pay"];
-  if (mode === "studio") return ["service", "mode", "business", "collaborator", "slot", "info", "pay"];
-  return ["service", "mode", "slot", "info", "pay"]; // video
+function buildSteps(mode: Mode, availableModes: Mode[] = []): StepKey[] {
+  const includeMode = availableModes.length > 1;
+  if (mode === "home") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "address", "slot", "info", "pay"];
+  if (mode === "studio") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "business", "collaborator", "slot", "info", "pay"];
+  return ["service", ...(includeMode ? ["mode" as StepKey] : []), "slot", "info", "pay"]; // video
 }
 
 function modeLabel(m: Mode) {
