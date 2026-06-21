@@ -1243,19 +1243,71 @@ function StepAddress({
     k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
   const customRef = useRef<HTMLInputElement>(null);
 
-  const [newLabel, setNewLabel] = useState("");
+  // Pré-remplissage intelligent depuis le compte client
+  const suggestedLabel = `Chez ${ACCOUNT_PROFILE.firstName}`;
+  const favoriteAddress = DEFAULT_ADDRESSES.find((a) => a.id === FAVORITE_ADDRESS_ID);
+
+  const [newLabel, setNewLabel] = useState(suggestedLabel);
   const [newAddress, setNewAddress] = useState("");
   const [newKind, setNewKind] = useState<ClientAddress["kind"]>("home");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     if (addressId === "custom") customRef.current?.focus();
   }, [addressId]);
 
+  // Reset les valeurs pré-remplies à chaque ouverture du formulaire
+  useEffect(() => {
+    if (isCreatingAddress) {
+      setNewLabel(suggestedLabel);
+      setNewAddress("");
+      setNewKind("home");
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [isCreatingAddress, suggestedLabel]);
+
+  // Autocomplétion temps réel (filtrage local)
+  useEffect(() => {
+    const q = newAddress.trim().toLowerCase();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const matched = ADDRESS_SUGGESTIONS_DB.filter((s) => s.toLowerCase().includes(q)).slice(0, 5);
+    setSuggestions(matched);
+  }, [newAddress]);
+
+  function useCurrentLocation() {
+    setLocating(true);
+    // Simulation d'un appel Geolocation API
+    setTimeout(() => {
+      setNewAddress(CURRENT_LOCATION_LABEL);
+      setLocating(false);
+      setShowSuggestions(false);
+      toast.success("Position détectée");
+    }, 700);
+  }
+
+  function applySavedAddress(a: ClientAddress) {
+    setNewAddress(a.address);
+    setNewKind(a.kind);
+    setNewLabel(a.label);
+    setShowSuggestions(false);
+  }
+
   if (isCreatingAddress) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold">Créer une adresse principale</div>
+          <div>
+            <div className="text-sm font-semibold">Créer une adresse principale</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Pré-rempli depuis votre compte — complétez les champs manquants.
+            </div>
+          </div>
           <button
             type="button"
             onClick={onCancelCreate}
@@ -1264,6 +1316,55 @@ function StepAddress({
             Annuler
           </button>
         </div>
+
+        {/* Raccourcis intelligents */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={useCurrentLocation}
+            disabled={locating}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition disabled:opacity-60"
+          >
+            {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+            {locating ? "Localisation…" : "📍 Ma position actuelle"}
+          </button>
+          {favoriteAddress && (
+            <button
+              type="button"
+              onClick={() => applySavedAddress(favoriteAddress)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold transition"
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+              Favorite · {favoriteAddress.label}
+            </button>
+          )}
+        </div>
+
+        {/* Adresses enregistrées */}
+        {DEFAULT_ADDRESSES.length > 0 && (
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              🏠 Mes adresses enregistrées
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {DEFAULT_ADDRESSES.map((a) => {
+                const Icon = iconFor(a.kind);
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => applySavedAddress(a)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-border bg-card hover:bg-secondary text-xs font-medium transition max-w-full"
+                    title={a.address}
+                  >
+                    <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate max-w-[160px]">{a.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3 bg-secondary/30 p-4 rounded-2xl border border-border">
           <div>
@@ -1294,7 +1395,14 @@ function StepAddress({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">Nom (ex : Chez Marion)</label>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1 flex items-center gap-1.5">
+              Nom de l'adresse
+              {newLabel === suggestedLabel && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                  <Check className="w-2.5 h-2.5" /> Pré-rempli
+                </span>
+              )}
+            </label>
             <input
               type="text"
               value={newLabel}
@@ -1304,15 +1412,45 @@ function StepAddress({
             />
           </div>
 
-          <div>
+          <div className="relative">
             <label className="text-xs font-semibold text-muted-foreground block mb-1">Adresse complète</label>
-            <input
-              type="text"
-              value={newAddress}
-              onChange={(e) => setNewAddress(e.target.value)}
-              placeholder="Ex : 5 rue de la Paix, 75002 Paris"
-              className="w-full h-10 px-3 rounded-xl border border-border bg-card text-sm outline-none focus:border-primary"
-            />
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={newAddress}
+                onChange={(e) => {
+                  setNewAddress(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder={`Rechercher une adresse à ${ACCOUNT_PROFILE.city}…`}
+                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border bg-card text-sm outline-none focus:border-primary"
+              />
+            </div>
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-fade-in">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setNewAddress(s);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 border-b border-border last:border-0"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">{s}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5" /> Autocomplétion temps réel
+            </div>
           </div>
         </div>
 
@@ -1329,9 +1467,6 @@ function StepAddress({
             disabled={!newLabel.trim() || !newAddress.trim()}
             onClick={() => {
               onSaveCreate(newLabel.trim(), newAddress.trim(), newKind);
-              setNewLabel("");
-              setNewAddress("");
-              setNewKind("home");
             }}
             className="flex-[2] bg-gradient-primary text-primary-foreground rounded-xl py-2 text-sm font-semibold shadow-glow disabled:opacity-50"
           >
