@@ -32,7 +32,7 @@ const proNav: { to: ProPath; label: string; icon: typeof Home; badge?: string | 
   { to: "/pro/parametres", label: "Paramètres", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
