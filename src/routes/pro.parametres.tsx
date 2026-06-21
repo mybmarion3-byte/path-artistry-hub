@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker, getPro } from "@/lib/booker-store";
-import { Settings, MapPin, Wallet, Bell, Shield } from "lucide-react";
+import { useBooker, getPro, type Mode } from "@/lib/booker-store";
+import { Settings, MapPin, Wallet, Bell, Shield, Home as HomeIcon, Building2, Video, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,15 +14,27 @@ function Page() {
   const settings = useBooker((s) => s.proSettings);
   const update = useBooker((s) => s.setProSettings);
   const proId = useBooker((s) => s.proIdentityId);
+  const setProModes = useBooker((s) => s.setProModes);
   const pro = getPro(proId);
 
   const [bio, setBio] = useState(pro.bio);
   const [iban, setIban] = useState("FR76 •••• •••• •••• 1234");
   const [notifs, setNotifs] = useState({ newRequest: true, message: true, marketing: false });
+  const [modes, setModes] = useState<Mode[]>(pro.modes);
+
+  function toggleMode(m: Mode) {
+    setModes((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  }
 
   function save() {
-    toast.success("Paramètres enregistrés");
+    if (modes.length === 0) {
+      toast.error("Sélectionnez au moins un mode de prestation");
+      return;
+    }
+    setProModes(proId, modes);
+    toast.success("Paramètres enregistrés · vos clients ne verront que vos modes actifs");
   }
+
 
   return (
     <AppLayout>
