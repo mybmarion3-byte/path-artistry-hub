@@ -848,6 +848,8 @@ function BookingDialog({
   const [phone, setPhone] = useState("");
   const [digicode, setDigicode] = useState("");
   const [comments, setComments] = useState("");
+  const [localAddresses, setLocalAddresses] = useState<ClientAddress[]>([]);
+  const [isCreatingAddress, setIsCreatingAddress] = useState(false);
 
   useEffect(() => {
     if (state) {
@@ -859,8 +861,10 @@ function BookingDialog({
         : state.pro.modes[0];
       setMode(defaultMode);
       // Si pas d'adresse principale enregistrée → on bascule direct sur la saisie custom
-      setAddressId(HAS_MAIN_ADDRESS ? ACCOUNT_MAIN_ADDRESS!.id : "custom");
+      setAddressId(HAS_MAIN_ADDRESS ? "a1" : "custom");
       setCustomAddress("");
+      setLocalAddresses(HAS_MAIN_ADDRESS ? DEFAULT_ADDRESSES : DEFAULT_ADDRESSES.filter((a) => a.kind !== "home"));
+      setIsCreatingAddress(false);
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
@@ -892,7 +896,7 @@ function BookingDialog({
   const selectedBusiness: BusinessLocation | undefined =
     businessId ? BUSINESSES.find((b) => b.id === businessId) : undefined;
   const selectedAddress: ClientAddress | undefined =
-    addressId ? DEFAULT_ADDRESSES.find((a) => a.id === addressId) : undefined;
+    addressId ? localAddresses.find((a) => a.id === addressId) : undefined;
   const finalAddress =
     mode === "home"
       ? (addressId === "custom" ? customAddress : selectedAddress?.address) ?? ""
