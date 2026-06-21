@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/messages")({
-  head: () => ({ meta: [{ title: "Messages — Booker \Booker NoWnbsp;NoW" }] }),
+  head: () => ({ meta: [{ title: "Messages — Booker NoW" }] }),
   component: Page,
 });
 

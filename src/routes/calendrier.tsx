@@ -4,7 +4,7 @@ import { useBooker, getPro } from "@/lib/booker-store";
 import { useState } from "react";
 
 export const Route = createFileRoute("/calendrier")({
-  head: () => ({ meta: [{ title: "Calendrier — Booker \Booker NoWnbsp;NoW" }] }),
+  head: () => ({ meta: [{ title: "Calendrier — Booker NoW" }] }),
   component: Page,
 });
 

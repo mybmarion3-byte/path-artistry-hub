@@ -11,7 +11,7 @@ import mapBg from "@/assets/map-paris.jpg";
 export const Route = createFileRoute("/pro/")({
   head: () => ({
     meta: [
-      { title: "Tableau de bord pro — Booker \Booker NoWnbsp;NoW" },
+      { title: "Tableau de bord pro — Booker NoW" },
       { name: "description", content: "Espace professionnel : agenda, demandes entrantes, zone d'intervention et revenus." },
     ],
   }),
