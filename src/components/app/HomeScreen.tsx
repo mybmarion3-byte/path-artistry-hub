@@ -500,6 +500,8 @@ function BookingPanel(props: {
   onOpenRequest: () => void;
 }) {
   const { result } = props;
+  const location = useBooker((s) => s.location);
+  const liveEta = useLiveEta(location);
 
   if (!result) {
     return (
