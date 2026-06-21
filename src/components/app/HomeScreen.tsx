@@ -931,10 +931,16 @@ function BookingDialog({
       ? getPro(collaboratorId)
       : undefined;
 
-  const distanceKm =
-    mode === "home"
-      ? Math.max(0.4, pro.distanceKm + (addressId === "a2" ? 1.8 : addressId === "a3" ? 4.2 : 0))
-      : selectedBusiness?.distanceKm ?? 0;
+  // Distance dérivée de l'adresse sélectionnée — recalculée à chaque changement
+  const distanceKm = (() => {
+    if (mode !== "home") return selectedBusiness?.distanceKm ?? 0;
+    const addrStr = addressId === "custom" ? customAddress : selectedAddress?.address ?? "";
+    if (!addrStr) return pro.distanceKm;
+    // Offset déterministe basé sur l'adresse : range ~[-0.8, +4.2] km
+    const h = hashLocation(addrStr);
+    const offset = ((h % 50) / 10) - 0.8;
+    return Math.max(0.4, pro.distanceKm + offset);
+  })();
   const etaMin = Math.max(5, Math.round(distanceKm * 6 + 6));
 
   const serviceFee = Math.round(service.price * 0.05);
