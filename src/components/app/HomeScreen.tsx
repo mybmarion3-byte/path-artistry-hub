@@ -803,11 +803,16 @@ function ProfileSheet(props: {
 /* -------------------- Booking dialog (adaptive multi-step) -------------------- */
 
 // Profil du compte client (pré-rempli à l'inscription)
+// Laisser un champ vide pour simuler une info manquante — le tunnel basculera dessus automatiquement.
 const ACCOUNT_PROFILE = {
   firstName: "Marion",
   phone: "06 24 18 92 07",
-  digicode: "12A45 · 3e étage gauche",
+  digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
 };
+
+const ACCOUNT_MAIN_ADDRESS = DEFAULT_ADDRESSES.find((a) => a.kind === "home");
+const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
+const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
 
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
