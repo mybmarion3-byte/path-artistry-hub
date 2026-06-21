@@ -394,6 +394,7 @@ type State = {
   updateProClientNote: (id: string, note: string) => void;
   toggleProClientVip: (id: string) => void;
   setProSettings: (s: Partial<ProSettings>) => void;
+  setProModes: (proId: string, modes: Mode[]) => void;
   setProInboxFilter: (f: Partial<State["proInboxFilter"]>) => void;
   setRevenuePeriod: (p: "3m" | "6m" | "12m") => void;
 };
