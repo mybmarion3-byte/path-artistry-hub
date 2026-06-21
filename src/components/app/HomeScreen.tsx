@@ -1,9 +1,9 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Star, Heart, Search, Filter, ArrowUpDown, MapIcon, List as ListIcon,
   Sparkles, Home as HomeIcon, ShieldCheck, CreditCard, MessageCircle,
   CheckCircle2, X, Send, Clock, Zap, Video, Building2, ArrowRight, Loader2, Check,
-  MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users,
+  MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users, AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -803,11 +803,16 @@ function ProfileSheet(props: {
 /* -------------------- Booking dialog (adaptive multi-step) -------------------- */
 
 // Profil du compte client (pré-rempli à l'inscription)
+// Laisser un champ vide pour simuler une info manquante — le tunnel basculera dessus automatiquement.
 const ACCOUNT_PROFILE = {
   firstName: "Marion",
   phone: "06 24 18 92 07",
-  digicode: "12A45 · 3e étage gauche",
+  digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
 };
+
+const ACCOUNT_MAIN_ADDRESS = DEFAULT_ADDRESSES.find((a) => a.kind === "home");
+const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
+const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
 
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
@@ -853,12 +858,13 @@ function BookingDialog({
         ? "home"
         : state.pro.modes[0];
       setMode(defaultMode);
-      setAddressId("a1");
+      // Si pas d'adresse principale enregistrée → on bascule direct sur la saisie custom
+      setAddressId(HAS_MAIN_ADDRESS ? ACCOUNT_MAIN_ADDRESS!.id : "custom");
       setCustomAddress("");
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
-      // Pré-rempli depuis le compte client
+      // Pré-rempli depuis le compte client (les champs vides resteront à compléter)
       setPhone(ACCOUNT_PROFILE.phone);
       setDigicode(ACCOUNT_PROFILE.digicode);
       setComments("");
@@ -1178,9 +1184,21 @@ function StepAddress({
 }) {
   const iconFor = (k: ClientAddress["kind"]) =>
     k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
+  const customRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (addressId === "custom") customRef.current?.focus();
+  }, [addressId]);
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
+      {!HAS_MAIN_ADDRESS && (
+        <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            <strong>Aucune adresse principale enregistrée.</strong> Saisissez-la ci-dessous, elle sera mémorisée pour vos prochaines réservations.
+          </span>
+        </div>
+      )}
       <div className="space-y-2">
         {addresses.map((a) => {
           const Icon = iconFor(a.kind);
@@ -1217,6 +1235,7 @@ function StepAddress({
         </button>
         {addressId === "custom" && (
           <input
+            ref={customRef}
             value={customAddress}
             onChange={(e) => onCustomChange(e.target.value)}
             placeholder="Ex : 5 rue de la Paix, 75002 Paris"
@@ -1366,16 +1385,34 @@ function StepInfo({
   mode: Mode; phone: string; digicode: string; comments: string;
   onPhone: (v: string) => void; onDigicode: (v: string) => void; onComments: (v: string) => void;
 }) {
+  const digicodeRef = useRef<HTMLInputElement>(null);
+  const phoneMissing = !ACCOUNT_PROFILE.phone;
+  const digicodeMissing = mode === "home" && !HAS_DIGICODE;
+  const anyMissing = phoneMissing || digicodeMissing;
+
+  useEffect(() => {
+    // Bascule automatique sur le premier champ à compléter
+    if (digicodeMissing && !digicode) digicodeRef.current?.focus();
+  }, [digicodeMissing, digicode]);
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-semibold">Informations complémentaires</div>
-        <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex items-center gap-1">
-          <Check className="w-3 h-3" /> Pré-rempli depuis votre compte
-        </span>
+        {anyMissing ? (
+          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> À compléter
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+            <Check className="w-3 h-3" /> Pré-rempli depuis votre compte
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground -mt-1">
-        Bonjour {ACCOUNT_PROFILE.firstName}, vérifiez ou modifiez si besoin.
+        {anyMissing
+          ? `Bonjour ${ACCOUNT_PROFILE.firstName}, il manque quelques infos pour ce rendez-vous.`
+          : `Bonjour ${ACCOUNT_PROFILE.firstName}, vérifiez ou modifiez si besoin.`}
       </p>
       <label className="block">
         <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
@@ -1392,13 +1429,16 @@ function StepInfo({
       {mode === "home" && (
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
-            <Lock className="w-3.5 h-3.5" /> Digicode (optionnel)
+            <Lock className="w-3.5 h-3.5" /> Digicode {digicodeMissing && !digicode ? <span className="text-amber-700">· à renseigner</span> : "(optionnel)"}
           </span>
           <input
+            ref={digicodeRef}
             value={digicode}
             onChange={(e) => onDigicode(e.target.value)}
             placeholder="Ex : 1234A · 3e étage gauche"
-            className="w-full h-11 px-4 rounded-xl border border-border bg-secondary text-sm outline-none focus:border-primary"
+            className={`w-full h-11 px-4 rounded-xl border bg-secondary text-sm outline-none focus:border-primary ${
+              digicodeMissing && !digicode ? "border-amber-300 ring-2 ring-amber-100" : "border-border"
+            }`}
           />
         </label>
       )}
