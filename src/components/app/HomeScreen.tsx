@@ -522,7 +522,7 @@ function BookingPanel(props: {
   }
 
   const pro = result.pro;
-  const etaMin = Math.max(8, Math.round(pro.distanceKm * 6 + 6));
+  const etaMin = liveEta(pro);
   const isNow = result.statusTone === "now";
   const firstSlotLabel = result.nextSlots.find((s) => s.label !== "Maintenant")?.label ?? result.nextSlots[0]?.label ?? "—";
   return (
