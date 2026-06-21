@@ -3,10 +3,11 @@ import {
   Star, Heart, Search, Filter, ArrowUpDown, MapIcon, List as ListIcon,
   Sparkles, Home as HomeIcon, ShieldCheck, CreditCard, MessageCircle,
   CheckCircle2, X, Send, Clock, Zap, Video, Building2, ArrowRight, Loader2, Check,
+  MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { PROS, getPro, useBooker, CATEGORIES, type Pro, type Mode, type Service } from "@/lib/booker-store";
+import { PROS, getPro, useBooker, CATEGORIES, BUSINESSES, DEFAULT_ADDRESSES, getBusinessesForPro, getProsForBusiness, type Pro, type Mode, type Service, type BusinessLocation, type ClientAddress } from "@/lib/booker-store";
 import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
