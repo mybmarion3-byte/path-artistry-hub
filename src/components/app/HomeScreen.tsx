@@ -802,6 +802,13 @@ function ProfileSheet(props: {
 
 /* -------------------- Booking dialog (adaptive multi-step) -------------------- */
 
+// Profil du compte client (pré-rempli à l'inscription)
+const ACCOUNT_PROFILE = {
+  firstName: "Marion",
+  phone: "06 24 18 92 07",
+  digicode: "12A45 · 3e étage gauche",
+};
+
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
 function buildSteps(mode: Mode): StepKey[] {
@@ -851,8 +858,9 @@ function BookingDialog({
       const bizForPro = getBusinessesForPro(state.pro.id);
       setBusinessId(bizForPro[0]?.id);
       setCollaboratorId("any");
-      setPhone("");
-      setDigicode("");
+      // Pré-rempli depuis le compte client
+      setPhone(ACCOUNT_PROFILE.phone);
+      setDigicode(ACCOUNT_PROFILE.digicode);
       setComments("");
     }
   }, [state?.pro.id, state?.service?.id, state?.slotIso]);
@@ -1360,7 +1368,15 @@ function StepInfo({
 }) {
   return (
     <div className="space-y-3">
-      <div className="text-sm font-semibold">Informations complémentaires</div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold">Informations complémentaires</div>
+        <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+          <Check className="w-3 h-3" /> Pré-rempli depuis votre compte
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">
+        Bonjour {ACCOUNT_PROFILE.firstName}, vérifiez ou modifiez si besoin.
+      </p>
       <label className="block">
         <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
           <Phone className="w-3.5 h-3.5" /> Téléphone
