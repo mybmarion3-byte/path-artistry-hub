@@ -565,28 +565,22 @@ function BookingPanel(props: {
 
       <div className="mt-5">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Mode de prestation</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${pro.modes.length === 1 ? "grid-cols-1" : pro.modes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
           {([
-            { m: "home" as const, label: "À domicile", icon: HomeIcon, emoji: "🏠" },
-            { m: "studio" as const, label: "Établissement", icon: Building2, emoji: "🏢" },
-            { m: "video" as const, label: "Visio", icon: Video, emoji: "💻" },
-          ]).map((opt) => {
-            const enabled = pro.modes.includes(opt.m);
-            return (
-              <button
+            { m: "home" as const, label: "À domicile", emoji: "🏠" },
+            { m: "studio" as const, label: "Établissement", emoji: "🏢" },
+            { m: "video" as const, label: "Visio", emoji: "💻" },
+          ])
+            .filter((opt) => pro.modes.includes(opt.m))
+            .map((opt) => (
+              <div
                 key={opt.m}
-                disabled={!enabled}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-2xl border text-[11px] font-medium transition ${
-                  enabled
-                    ? "border-border bg-card hover:border-primary/40 hover:bg-accent/30"
-                    : "border-border/50 bg-secondary/40 text-muted-foreground/60 cursor-not-allowed"
-                }`}
+                className="flex flex-col items-center gap-1 py-2.5 rounded-2xl border border-border bg-card text-[11px] font-medium"
               >
                 <span className="text-base leading-none">{opt.emoji}</span>
                 <span>{opt.label}</span>
-              </button>
-            );
-          })}
+              </div>
+            ))}
         </div>
       </div>
 
@@ -840,10 +834,11 @@ const ADDRESS_SUGGESTIONS_DB = [
 
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
-function buildSteps(mode: Mode): StepKey[] {
-  if (mode === "home") return ["service", "mode", "address", "slot", "info", "pay"];
-  if (mode === "studio") return ["service", "mode", "business", "collaborator", "slot", "info", "pay"];
-  return ["service", "mode", "slot", "info", "pay"]; // video
+function buildSteps(mode: Mode, availableModes: Mode[] = []): StepKey[] {
+  const includeMode = availableModes.length > 1;
+  if (mode === "home") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "address", "slot", "info", "pay"];
+  if (mode === "studio") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "business", "collaborator", "slot", "info", "pay"];
+  return ["service", ...(includeMode ? ["mode" as StepKey] : []), "slot", "info", "pay"]; // video
 }
 
 function modeLabel(m: Mode) {
@@ -908,7 +903,7 @@ function BookingDialog({
   }, [mode, businessId, collaboratorId, sourcePro]);
   const slots = useBookerSlots(proForSlots.id);
 
-  const steps = useMemo(() => buildSteps(mode), [mode]);
+  const steps = useMemo(() => buildSteps(mode, sourcePro?.modes ?? []), [mode, sourcePro?.modes]);
   const currentStep = steps[stepIdx];
   const isLast = stepIdx === steps.length - 1;
 
@@ -1179,31 +1174,33 @@ function StepService({
 function StepMode({
   available, mode, hasEstablishment, onPick,
 }: { available: Mode[]; mode: Mode; hasEstablishment: boolean; onPick: (m: Mode) => void }) {
-  const options: { m: Mode; emoji: string; label: string; sub: string }[] = [
+  const allOptions: { m: Mode; emoji: string; label: string; sub: string }[] = [
     { m: "home", emoji: "🏠", label: "À domicile", sub: "Le pro vient chez vous" },
     { m: "studio", emoji: "🏢", label: "En établissement", sub: "Vous vous déplacez" },
     { m: "video", emoji: "💻", label: "En visio", sub: "Sans déplacement" },
   ];
+  const options = allOptions.filter((o) =>
+    o.m === "studio" ? hasEstablishment && available.includes("studio") : available.includes(o.m)
+  );
   return (
     <div>
       <div className="text-sm font-semibold mb-1">Comment souhaitez-vous être reçu&nbsp;?</div>
-      <div className="text-xs text-muted-foreground mb-3">Une question, un parcours sur mesure.</div>
+      <div className="text-xs text-muted-foreground mb-3">
+        {options.length === 1
+          ? "Ce professionnel propose uniquement ce mode."
+          : "Une question, un parcours sur mesure."}
+      </div>
       <div className="space-y-2">
         {options.map((o) => {
-          const enabled =
-            o.m === "studio" ? hasEstablishment : available.includes(o.m);
           const active = mode === o.m;
           return (
             <button
               key={o.m}
-              disabled={!enabled}
               onClick={() => onPick(o.m)}
               className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border text-left transition ${
                 active
                   ? "border-primary bg-accent/40 shadow-soft"
-                  : enabled
-                  ? "border-border hover:border-primary/40 hover:bg-secondary"
-                  : "border-border/50 bg-secondary/40 text-muted-foreground/60 cursor-not-allowed"
+                  : "border-border hover:border-primary/40 hover:bg-secondary"
               }`}
             >
               <span className="text-2xl leading-none">{o.emoji}</span>

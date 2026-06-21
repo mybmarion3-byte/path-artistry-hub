@@ -394,6 +394,7 @@ type State = {
   updateProClientNote: (id: string, note: string) => void;
   toggleProClientVip: (id: string) => void;
   setProSettings: (s: Partial<ProSettings>) => void;
+  setProModes: (proId: string, modes: Mode[]) => void;
   setProInboxFilter: (f: Partial<State["proInboxFilter"]>) => void;
   setRevenuePeriod: (p: "3m" | "6m" | "12m") => void;
 };
@@ -563,6 +564,11 @@ export const useBooker = create<State>((set) => ({
   toggleProClientVip: (id) =>
     set((st) => ({ proClients: st.proClients.map((c) => (c.id === id ? { ...c, vip: !c.vip } : c)) })),
   setProSettings: (p) => set((st) => ({ proSettings: { ...st.proSettings, ...p } })),
+  setProModes: (proId, modes) => {
+    const pro = PROS.find((p) => p.id === proId);
+    if (pro) pro.modes = modes.length > 0 ? modes : ["home"];
+    set((st) => ({ ...st }));
+  },
   setProInboxFilter: (f) => set((st) => ({ proInboxFilter: { ...st.proInboxFilter, ...f } })),
   setRevenuePeriod: (p) => set({ revenuePeriod: p }),
 }));
