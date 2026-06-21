@@ -4,7 +4,7 @@ import { useState } from "react";
 import userMarion from "@/assets/user-marion.jpg";
 
 export const Route = createFileRoute("/parametres")({
-  head: () => ({ meta: [{ title: "Paramètres — Booker 2030" }] }),
+  head: () => ({ meta: [{ title: "Paramètres — Booker NoW" }] }),
   component: Page,
 });
 

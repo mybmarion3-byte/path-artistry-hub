@@ -4,7 +4,7 @@ import { useBooker } from "@/lib/booker-store";
 import { TrendingUp, Users, Calendar, Euro } from "lucide-react";
 
 export const Route = createFileRoute("/analyses")({
-  head: () => ({ meta: [{ title: "Analyses — Booker 2030" }] }),
+  head: () => ({ meta: [{ title: "Analyses — Booker NoW" }] }),
   component: Page,
 });
 
