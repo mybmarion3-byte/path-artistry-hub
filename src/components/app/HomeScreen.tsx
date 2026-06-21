@@ -802,6 +802,13 @@ function ProfileSheet(props: {
 
 /* -------------------- Booking dialog (adaptive multi-step) -------------------- */
 
+// Profil du compte client (pré-rempli à l'inscription)
+const ACCOUNT_PROFILE = {
+  firstName: "Marion",
+  phone: "06 24 18 92 07",
+  digicode: "12A45 · 3e étage gauche",
+};
+
 type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
 
 function buildSteps(mode: Mode): StepKey[] {
