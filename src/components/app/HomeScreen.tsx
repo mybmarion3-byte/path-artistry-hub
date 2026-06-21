@@ -335,7 +335,8 @@ function MapView(props: {
   searchQuery: string;
   location: string;
 }) {
-  const { view, setView, results, selectedId, onSelect } = props;
+  const { view, setView, results, selectedId, onSelect, location } = props;
+  const liveEta = useLiveEta(location);
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border shadow-soft bg-secondary">
       <img src={mapBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
