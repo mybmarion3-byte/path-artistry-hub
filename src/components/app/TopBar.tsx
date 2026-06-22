@@ -2,7 +2,7 @@ import { Bell, Search, MapPin, ChevronDown, Clock, Power, Inbox, LogOut, LogIn }
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useBooker, getPro, type When } from "@/lib/booker-store";
-import { useAuth } from "@/hooks/use-auth";
+import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
 import { supabase } from "@/integrations/supabase/client";
 import userMarion from "@/assets/user-marion.jpg";
 
@@ -173,7 +173,7 @@ export function TopBar() {
 }
 
 function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType<typeof getPro> }) {
-  const { user, loading } = useAuth();
+  const { user, profile, role: authRole, pro, loading } = useCurrentUserProfile();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const isClient = role === "client";
@@ -200,7 +200,13 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
     );
   }
 
-  const initials = (user.user_metadata?.full_name ?? user.email ?? "?").slice(0, 1).toUpperCase();
+  const displayName = profile?.full_name ?? user.user_metadata?.full_name ?? user.email ?? "?";
+  const firstName = displayName.split(" ")[0] || user.email?.split("@")[0] || "?";
+  const initials = displayName.slice(0, 1).toUpperCase();
+  const proName = pro?.name ?? proIdentity.name;
+  const proCategory = pro?.category ?? proIdentity.category;
+  const proAvatar = pro?.avatar_url ?? proIdentity.avatar;
+  const avatarUrl = isClient ? profile?.avatar_url : proAvatar;
 
   return (
     <div className="relative">
@@ -210,17 +216,17 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
           isClient ? "border-border" : "border-emerald-500"
         } hover:bg-secondary transition`}
       >
-        {isClient ? (
-          <img src={userMarion} alt="" className="w-10 h-10 rounded-full object-cover" />
-        ) : (
-          <img src={proIdentity.avatar} alt={proIdentity.name} className="w-10 h-10 rounded-full object-cover" />
-        )}
+        <img
+          src={avatarUrl || userMarion}
+          alt={isClient ? "" : proName}
+          className="w-10 h-10 rounded-full object-cover"
+        />
         <div className="text-left leading-tight">
           <div className="text-sm font-semibold">
-            {user.user_metadata?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? initials}
+            {firstName || initials}
           </div>
           <div className={`text-[10px] font-semibold ${isClient ? "text-primary" : "text-emerald-600"}`}>
-            {isClient ? "CLIENTE" : `PRO · ${proIdentity.category.toUpperCase()}`}
+            {authRole === "admin" ? "ADMIN" : isClient ? "CLIENTE" : `PRO · ${proCategory.toUpperCase()}`}
           </div>
         </div>
         <ChevronDown className="w-4 h-4 text-muted-foreground" />

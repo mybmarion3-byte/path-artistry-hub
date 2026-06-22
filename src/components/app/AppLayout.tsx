@@ -4,7 +4,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { useBooker } from "@/lib/booker-store";
-import { useAuth } from "@/hooks/use-auth";
+import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
 
 const CLIENT_ONLY = ["/", "/reservations", "/messages", "/favoris", "/paiements", "/avis", "/calendrier", "/analyses", "/parametres"];
 
@@ -13,7 +13,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, role: authRole, loading } = useCurrentUserProfile();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -22,12 +22,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
       navigate({ to: "/auth", search: { redirect: pathname } });
       return;
     }
+    const nextRole = authRole === "client" ? (isProPath ? "pro" : "client") : "pro";
+    if (user && role !== nextRole) {
+      setRole(nextRole);
+      return;
+    }
     if (role === "client" && isProPath) {
       setRole("pro");
     } else if (role === "pro" && CLIENT_ONLY.includes(pathname)) {
       navigate({ to: "/pro" });
     }
-  }, [pathname, role, setRole, navigate, user, loading]);
+  }, [pathname, role, setRole, navigate, user, authRole, loading]);
 
   return (
     <div className="min-h-screen flex bg-background">
