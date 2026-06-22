@@ -6,8 +6,12 @@ import {
   MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users, AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PROS, getPro, useBooker, CATEGORIES, BUSINESSES, DEFAULT_ADDRESSES, getBusinessesForPro, getProsForBusiness, type Pro, type Mode, type Service, type BusinessLocation, type ClientAddress } from "@/lib/booker-store";
+import { createBooking as createBookingFn } from "@/lib/bookings.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
