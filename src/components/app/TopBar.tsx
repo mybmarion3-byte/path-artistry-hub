@@ -1,7 +1,9 @@
-import { Bell, Search, MapPin, ChevronDown, Clock, Power, Inbox } from "lucide-react";
+import { Bell, Search, MapPin, ChevronDown, Clock, Power, Inbox, LogOut, LogIn } from "lucide-react";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useBooker, getPro, type When } from "@/lib/booker-store";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import userMarion from "@/assets/user-marion.jpg";
 
 const WHEN_OPTIONS: { label: string; value: When }[] = [
@@ -165,26 +167,77 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Identity card — distinct per role */}
-      {isClient ? (
-        <button className="flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-card border border-border hover:bg-secondary transition">
-          <img src={userMarion} alt="Marion" className="w-10 h-10 rounded-full object-cover" />
-          <div className="text-left leading-tight">
-            <div className="text-sm font-semibold">Marion</div>
-            <div className="text-[10px] font-semibold text-primary">CLIENTE</div>
-          </div>
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        </button>
-      ) : (
-        <button className="flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-white border-2 border-emerald-500 hover:bg-emerald-50 transition shadow-sm">
-          <img src={proIdentity.avatar} alt={proIdentity.name} className="w-10 h-10 rounded-full object-cover" />
-          <div className="text-left leading-tight">
-            <div className="text-sm font-semibold">{proIdentity.name.split(" ")[0]}</div>
-            <div className="text-[10px] font-semibold text-emerald-600">PRO · {proIdentity.category.toUpperCase()}</div>
-          </div>
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        </button>
-      )}
+      <UserMenu role={role} proIdentity={proIdentity} />
     </header>
+  );
+}
+
+function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType<typeof getPro> }) {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const isClient = role === "client";
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setOpen(false);
+    navigate({ to: "/auth" });
+  }
+
+  if (loading) {
+    return <div className="w-12 h-12 rounded-full bg-card border border-border animate-pulse" />;
+  }
+
+  if (!user) {
+    return (
+      <Link
+        to="/auth"
+        className="flex items-center gap-2 px-4 h-12 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold shadow-glow hover:opacity-90 transition"
+      >
+        <LogIn className="w-4 h-4" />
+        Connexion
+      </Link>
+    );
+  }
+
+  const initials = (user.user_metadata?.full_name ?? user.email ?? "?").slice(0, 1).toUpperCase();
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-2 pl-1 pr-3 h-12 rounded-full bg-card border ${
+          isClient ? "border-border" : "border-emerald-500"
+        } hover:bg-secondary transition`}
+      >
+        {isClient ? (
+          <img src={userMarion} alt="" className="w-10 h-10 rounded-full object-cover" />
+        ) : (
+          <img src={proIdentity.avatar} alt={proIdentity.name} className="w-10 h-10 rounded-full object-cover" />
+        )}
+        <div className="text-left leading-tight">
+          <div className="text-sm font-semibold">
+            {user.user_metadata?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? initials}
+          </div>
+          <div className={`text-[10px] font-semibold ${isClient ? "text-primary" : "text-emerald-600"}`}>
+            {isClient ? "CLIENTE" : `PRO · ${proIdentity.category.toUpperCase()}`}
+          </div>
+        </div>
+        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-2xl shadow-card overflow-hidden z-40">
+          <div className="px-4 py-3 border-b border-border">
+            <div className="text-sm font-semibold truncate">{user.email}</div>
+          </div>
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left hover:bg-secondary transition"
+          >
+            <LogOut className="w-4 h-4" /> Se déconnecter
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
