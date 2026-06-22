@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Star, Heart, Search, Filter, ArrowUpDown, MapIcon, List as ListIcon,
   Sparkles, Home as HomeIcon, ShieldCheck, CreditCard, MessageCircle,
-  CheckCircle2, X, Send, Clock, Zap, Video, Building2, ArrowRight, Loader2, Check,
+  CheckCircle2, Send, Clock, Zap, Video, Building2, ArrowRight, Loader2, Check,
   MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users, AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -13,41 +13,21 @@ import { PROS, getPro, useBooker, CATEGORIES, BUSINESSES, DEFAULT_ADDRESSES, get
 import { createBooking as createBookingFn } from "@/lib/bookings.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
+import {
+  ACCOUNT_PROFILE,
+  ADDRESS_SUGGESTIONS_DB,
+  CURRENT_LOCATION_LABEL,
+  FAVORITE_ADDRESS_ID,
+  HAS_DIGICODE,
+  HAS_MAIN_ADDRESS,
+  buildSteps,
+  modeLabel,
+} from "@/components/app/booking-dialog-model";
+import { hashLocation, useBookerSlots, useLiveEta } from "@/components/app/booking-hooks";
+import { Chip, Field, MiniBtn, Row, Stepper } from "@/components/app/booking-ui";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import mapBg from "@/assets/map-paris.jpg";
-
-function hashLocation(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-/**
- * Real-time ETA: recomputes every 30 s and whenever the user's location changes.
- * Returns the estimated arrival time in minutes for any pro.
- */
-function useLiveEta(location: string) {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  const offsetKm = useMemo(() => {
-    const h = hashLocation(location || "");
-    // Deterministic offset per location, range ~[-1.0, +2.6] km
-    return ((h % 36) / 10) - 1.0;
-  }, [location]);
-  return useMemo(() => {
-    const minute = new Date().getMinutes();
-    const jitter = ((minute % 5) - 2); // small live variation ±2 min
-    return (pro: { distanceKm: number }) => {
-      const adj = Math.max(0.2, pro.distanceKm + offsetKm);
-      return Math.max(5, Math.round(adj * 6 + 6 + jitter));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offsetKm, tick]);
-}
 
 export function HomeScreen() {
   const {
@@ -316,17 +296,6 @@ function ProListColumn(props: {
   );
 }
 
-function Chip({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium bg-secondary px-2.5 py-1 rounded-full">
-      {children}
-      <button onClick={onRemove} className="text-muted-foreground hover:text-foreground">
-        <X className="w-3 h-3" />
-      </button>
-    </span>
-  );
-}
-
 /* -------------------- Map -------------------- */
 
 function MapView(props: {
@@ -484,15 +453,6 @@ function MapView(props: {
         <button className="w-9 h-9 hover:bg-secondary text-lg border-t border-border">−</button>
       </div>
     </div>
-  );
-}
-
-function MiniBtn({ children, label }: { children: React.ReactNode; label: string }) {
-  return (
-    <button className="w-12 h-12 rounded-2xl bg-card border border-border flex flex-col items-center justify-center text-xs text-muted-foreground shadow-soft hover:bg-secondary transition">
-      <span className="text-base">{children}</span>
-      <span className="text-[9px] leading-tight mt-0.5">{label}</span>
-    </button>
   );
 }
 
@@ -799,55 +759,6 @@ function ProfileSheet(props: {
 /* -------------------- Booking Dialog (3 steps) -------------------- */
 
 /* -------------------- Booking dialog (adaptive multi-step) -------------------- */
-
-// Profil du compte client (pré-rempli à l'inscription)
-// Laisser un champ vide pour simuler une info manquante — le tunnel basculera dessus automatiquement.
-const ACCOUNT_PROFILE = {
-  firstName: "Marion",
-  lastName: "Dubois",
-  phone: "06 24 18 92 07",
-  digicode: "", // ← vide : le tunnel ouvrira l'étape Infos sur ce champ
-  city: "Paris",
-};
-
-const ACCOUNT_MAIN_ADDRESS = null; // ← nul pour simuler l'absence d'adresse principale
-const HAS_MAIN_ADDRESS = !!ACCOUNT_MAIN_ADDRESS;
-const HAS_DIGICODE = ACCOUNT_PROFILE.digicode.trim().length > 0;
-
-// Adresse favorite du compte (la plus utilisée par le client)
-const FAVORITE_ADDRESS_ID = "a2"; // Hôtel Le Meurice dans DEFAULT_ADDRESSES
-
-// Position GPS simulée (en l'absence de Geolocation API réelle)
-const CURRENT_LOCATION_LABEL = "12 avenue de l'Opéra, 75001 Paris";
-
-// Base d'autocomplétion locale (simulation Google Places)
-const ADDRESS_SUGGESTIONS_DB = [
-  "5 rue de la Paix, 75002 Paris",
-  "12 avenue de l'Opéra, 75001 Paris",
-  "8 boulevard Haussmann, 75009 Paris",
-  "24 rue de Tocqueville, 75017 Paris",
-  "45 rue du Faubourg Saint-Honoré, 75008 Paris",
-  "3 place Vendôme, 75001 Paris",
-  "17 rue Saint-Dominique, 75007 Paris",
-  "228 rue de Rivoli, 75001 Paris",
-  "9 rue Royale, 75008 Paris",
-  "60 rue de Sèvres, 75007 Paris",
-  "Tour First, 1 place des Saisons, 92800 Puteaux",
-  "14 rue Cler, 75007 Paris",
-];
-
-type StepKey = "service" | "mode" | "address" | "business" | "collaborator" | "slot" | "info" | "pay";
-
-function buildSteps(mode: Mode, availableModes: Mode[] = []): StepKey[] {
-  const includeMode = availableModes.length > 1;
-  if (mode === "home") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "address", "slot", "info", "pay"];
-  if (mode === "studio") return ["service", ...(includeMode ? ["mode" as StepKey] : []), "business", "collaborator", "slot", "info", "pay"];
-  return ["service", ...(includeMode ? ["mode" as StepKey] : []), "slot", "info", "pay"]; // video
-}
-
-function modeLabel(m: Mode) {
-  return m === "home" ? "À domicile" : m === "studio" ? "En établissement" : "En visio";
-}
 
 function BookingDialog({
   state,
@@ -1984,47 +1895,6 @@ function StepPay({
 
 
 
-function useBookerSlots(proId: string) {
-  return useMemo(() => {
-    const pro = getPro(proId);
-    return matchPros({ query: "", when: { kind: "now" }, maxKm: 99, atHome: false })
-      .find((r) => r.pro.id === pro.id)?.nextSlots ?? [];
-  }, [proId]);
-}
-
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex justify-between px-4 py-2.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={bold ? "font-semibold text-base" : "font-medium"}>{value}</span>
-    </div>
-  );
-}
-
-function Stepper({ step, total }: { step: number; total: number }) {
-  return (
-    <div className="flex items-center gap-2 mt-3">
-      {Array.from({ length: total }).map((_, i) => {
-        const n = i + 1;
-        const done = n < step;
-        const active = n === step;
-        return (
-          <div key={n} className="flex items-center gap-2 flex-1">
-            <div className={`w-6 h-6 rounded-full text-xs font-semibold flex items-center justify-center ${
-              done ? "bg-success text-success-foreground" :
-              active ? "bg-primary text-primary-foreground" :
-              "bg-secondary text-muted-foreground"
-            }`}>
-              {done ? <Check className="w-3.5 h-3.5" /> : n}
-            </div>
-            {n < total && <div className={`flex-1 h-0.5 ${n < step ? "bg-success" : "bg-border"}`} />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /* -------------------- Instant Request Dialog -------------------- */
 
 function InstantRequestDialog(props: {
@@ -2200,15 +2070,6 @@ function InstantRequestDialog(props: {
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</div>
-      {children}
-    </div>
   );
 }
 
