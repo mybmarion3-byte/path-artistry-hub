@@ -4,6 +4,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { useBooker } from "@/lib/booker-store";
+import { useAuth } from "@/hooks/use-auth";
 
 const CLIENT_ONLY = ["/", "/reservations", "/messages", "/favoris", "/paiements", "/avis", "/calendrier", "/analyses", "/parametres"];
 
@@ -12,16 +13,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const isProPath = pathname === "/pro" || pathname.startsWith("/pro/");
+    if (isProPath && !loading && !user) {
+      navigate({ to: "/auth", search: { redirect: pathname } });
+      return;
+    }
     if (role === "client" && isProPath) {
       setRole("pro");
     } else if (role === "pro" && CLIENT_ONLY.includes(pathname)) {
       navigate({ to: "/pro" });
     }
-  }, [pathname, role, setRole, navigate]);
+  }, [pathname, role, setRole, navigate, user, loading]);
 
   return (
     <div className="min-h-screen flex bg-background">
