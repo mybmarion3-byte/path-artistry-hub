@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getPrimaryAuthRole, type SignupRole } from "@/lib/auth-roles";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -25,6 +26,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [signupRole, setSignupRole] = useState<SignupRole>("client");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -43,16 +45,17 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName },
+            data: { full_name: fullName, role: signupRole },
           },
         });
         if (error) throw error;
         toast.success("Compte créé ! Vous êtes connectée.");
-        navigate({ to: redirect || "/" });
+        navigate({ to: redirect || (signupRole === "pro" ? "/pro" : "/") });
       } else if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: redirect || "/" });
+        const role = getPrimaryAuthRole(data.user ?? null);
+        navigate({ to: redirect || (role === "pro" ? "/pro" : "/") });
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
@@ -113,6 +116,27 @@ function AuthPage() {
             <div>
               <Label htmlFor="name">Nom complet</Label>
               <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            </div>
+          )}
+          {mode === "signup" && (
+            <div>
+              <Label>Type de compte</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {(["client", "pro"] as const).map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setSignupRole(role)}
+                    className={`h-10 rounded-xl border text-sm font-medium transition ${
+                      signupRole === role
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card hover:bg-secondary"
+                    }`}
+                  >
+                    {role === "client" ? "Client" : "Professionnel"}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <div>
