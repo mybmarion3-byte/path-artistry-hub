@@ -6,8 +6,12 @@ import {
   MapPin, Phone, Lock, MessageSquare, Plus, Hotel, Briefcase, Users, AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PROS, getPro, useBooker, CATEGORIES, BUSINESSES, DEFAULT_ADDRESSES, getBusinessesForPro, getProsForBusiness, type Pro, type Mode, type Service, type BusinessLocation, type ClientAddress } from "@/lib/booker-store";
+import { createBooking as createBookingFn } from "@/lib/bookings.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -955,32 +959,57 @@ function BookingDialog({
     }
   })();
 
-  function confirm() {
+  const createBookingServer = useServerFn(createBookingFn);
+  const queryClient = useQueryClient();
+
+  async function confirm() {
     const bookedPro = collaboratorPro ?? pro;
-    addBooking({
-      proId: bookedPro.id,
-      serviceId: service.id,
-      serviceName: service.name,
-      mode,
-      date: slot?.iso.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-      time: slot?.label ?? "—",
-      price: total,
-      address: mode === "home" ? finalAddress : selectedBusiness?.address,
-      businessName: mode === "studio" ? selectedBusiness?.name : undefined,
-      collaboratorName: mode === "studio" ? bookedPro.name : undefined,
-      phone,
-      digicode: mode === "home" ? digicode : undefined,
-      comments,
-    });
-    pushNotification({
-      title: `Réservation confirmée avec ${bookedPro.name.split(" ")[0]}`,
-      body: `${service.name} — ${slot?.label}${mode === "studio" && selectedBusiness ? ` · ${selectedBusiness.name}` : ""}`,
-    });
-    toast.success("Réservation confirmée !", {
-      description: `${bookedPro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
-    });
-    onClose();
-    navigate({ to: "/reservations" });
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      toast.error("Connectez-vous pour réserver", {
+        description: "Vous serez redirigée vers la page de connexion.",
+      });
+      navigate({ to: "/auth", search: { redirect: "/" } });
+      return;
+    }
+
+    // Compute start_at ISO from slot
+    const slotIsoStr = slot?.iso;
+    if (!slotIsoStr) {
+      toast.error("Créneau invalide");
+      return;
+    }
+    const startAt = new Date(slotIsoStr).toISOString();
+    const addressText =
+      mode === "home" ? finalAddress : mode === "studio" ? selectedBusiness?.address : undefined;
+
+    try {
+      await createBookingServer({
+        data: {
+          pro_slug: bookedPro.id, // mock id matches DB slug
+          service_slug: service.id,
+          address_text: addressText,
+          mode,
+          start_at: startAt,
+          duration_min: service.duration,
+          phone,
+          digicode: mode === "home" ? digicode : undefined,
+          comments,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ["bookings", "me"] });
+      pushNotification({
+        title: `Réservation confirmée avec ${bookedPro.name.split(" ")[0]}`,
+        body: `${service.name} — ${slot?.label}${mode === "studio" && selectedBusiness ? ` · ${selectedBusiness.name}` : ""}`,
+      });
+      toast.success("Réservation confirmée !", {
+        description: `${bookedPro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
+      });
+      onClose();
+      navigate({ to: "/reservations" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur de réservation");
+    }
   }
 
   const businessesForPro = getBusinessesForPro(pro.id);

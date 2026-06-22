@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReservationsRouteImport } from './routes/reservations'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PaiementsRouteImport } from './routes/paiements'
@@ -16,6 +17,7 @@ import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as FavorisRouteImport } from './routes/favoris'
 import { Route as CalendrierRouteImport } from './routes/calendrier'
 import { Route as AvisRouteImport } from './routes/avis'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProIndexRouteImport } from './routes/pro.index'
@@ -27,6 +29,11 @@ import { Route as ProDemandesRouteImport } from './routes/pro.demandes'
 import { Route as ProClientsRouteImport } from './routes/pro.clients'
 import { Route as ProAgendaRouteImport } from './routes/pro.agenda'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReservationsRoute = ReservationsRouteImport.update({
   id: '/reservations',
   path: '/reservations',
@@ -60,6 +67,11 @@ const CalendrierRoute = CalendrierRouteImport.update({
 const AvisRoute = AvisRouteImport.update({
   id: '/avis',
   path: '/avis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysesRoute = AnalysesRouteImport.update({
@@ -116,6 +128,7 @@ const ProAgendaRoute = ProAgendaRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analyses': typeof AnalysesRoute
+  '/auth': typeof AuthRoute
   '/avis': typeof AvisRoute
   '/calendrier': typeof CalendrierRoute
   '/favoris': typeof FavorisRoute
@@ -123,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
   '/reservations': typeof ReservationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
@@ -135,6 +149,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analyses': typeof AnalysesRoute
+  '/auth': typeof AuthRoute
   '/avis': typeof AvisRoute
   '/calendrier': typeof CalendrierRoute
   '/favoris': typeof FavorisRoute
@@ -142,6 +157,7 @@ export interface FileRoutesByTo {
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
   '/reservations': typeof ReservationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
@@ -155,6 +171,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analyses': typeof AnalysesRoute
+  '/auth': typeof AuthRoute
   '/avis': typeof AvisRoute
   '/calendrier': typeof CalendrierRoute
   '/favoris': typeof FavorisRoute
@@ -162,6 +179,7 @@ export interface FileRoutesById {
   '/paiements': typeof PaiementsRoute
   '/parametres': typeof ParametresRoute
   '/reservations': typeof ReservationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
@@ -176,6 +194,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analyses'
+    | '/auth'
     | '/avis'
     | '/calendrier'
     | '/favoris'
@@ -183,6 +202,7 @@ export interface FileRouteTypes {
     | '/paiements'
     | '/parametres'
     | '/reservations'
+    | '/reset-password'
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
@@ -195,6 +215,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analyses'
+    | '/auth'
     | '/avis'
     | '/calendrier'
     | '/favoris'
@@ -202,6 +223,7 @@ export interface FileRouteTypes {
     | '/paiements'
     | '/parametres'
     | '/reservations'
+    | '/reset-password'
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
@@ -214,6 +236,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analyses'
+    | '/auth'
     | '/avis'
     | '/calendrier'
     | '/favoris'
@@ -221,6 +244,7 @@ export interface FileRouteTypes {
     | '/paiements'
     | '/parametres'
     | '/reservations'
+    | '/reset-password'
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
@@ -234,6 +258,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalysesRoute: typeof AnalysesRoute
+  AuthRoute: typeof AuthRoute
   AvisRoute: typeof AvisRoute
   CalendrierRoute: typeof CalendrierRoute
   FavorisRoute: typeof FavorisRoute
@@ -241,6 +266,7 @@ export interface RootRouteChildren {
   PaiementsRoute: typeof PaiementsRoute
   ParametresRoute: typeof ParametresRoute
   ReservationsRoute: typeof ReservationsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ProAgendaRoute: typeof ProAgendaRoute
   ProClientsRoute: typeof ProClientsRoute
   ProDemandesRoute: typeof ProDemandesRoute
@@ -253,6 +279,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reservations': {
       id: '/reservations'
       path: '/reservations'
@@ -300,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/avis'
       fullPath: '/avis'
       preLoaderRoute: typeof AvisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analyses': {
@@ -378,6 +418,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysesRoute: AnalysesRoute,
+  AuthRoute: AuthRoute,
   AvisRoute: AvisRoute,
   CalendrierRoute: CalendrierRoute,
   FavorisRoute: FavorisRoute,
@@ -385,6 +426,7 @@ const rootRouteChildren: RootRouteChildren = {
   PaiementsRoute: PaiementsRoute,
   ParametresRoute: ParametresRoute,
   ReservationsRoute: ReservationsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ProAgendaRoute: ProAgendaRoute,
   ProClientsRoute: ProClientsRoute,
   ProDemandesRoute: ProDemandesRoute,
@@ -397,13 +439,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
