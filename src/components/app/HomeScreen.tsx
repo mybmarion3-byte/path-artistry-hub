@@ -8,6 +8,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { PROS, getPro, useBooker, CATEGORIES, type Pro, type Mode, type Service } from "@/lib/booker-store";
 import { matchPros, findEligibleProsForRequest, type MatchResult } from "@/lib/matching";
+import { usePros } from "@/hooks/use-pros";
 import { BookingDialog } from "@/components/app/BookingDialog";
 import { BookingPanel } from "@/components/app/BookingPanel";
 import { MapView } from "@/components/app/MapView";
@@ -24,6 +25,8 @@ export function HomeScreen() {
     removeFilterCategory, clearFilters, toggleFilterCategory, setFilters,
   } = useBooker();
 
+  const { pros } = usePros();
+
   const results = useMemo(
     () =>
       matchPros({
@@ -32,9 +35,10 @@ export function HomeScreen() {
         when,
         maxKm: filters.maxKm,
         atHome: filters.atHome,
-      }),
-    [searchQuery, when, filters],
+      }, pros),
+    [searchQuery, when, filters, pros],
   );
+
 
   const selectedResult =
     results.find((r) => r.pro.id === selectedProId) ?? results[0] ?? null;
