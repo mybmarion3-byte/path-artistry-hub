@@ -39,7 +39,7 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -48,6 +48,11 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (!data.session) {
+          toast.success("Compte créé. Vérifiez votre e-mail pour confirmer l'inscription.");
+          setMode("signin");
+          return;
+        }
         toast.success("Compte créé ! Vous êtes connectée.");
         navigate({ to: redirect || (signupRole === "pro" ? "/pro" : "/") });
       } else if (mode === "signin") {
@@ -98,8 +103,8 @@ function AuthPage() {
 
         {mode !== "forgot" && (
           <>
-            <Button type="button" variant="outline" className="w-full" onClick={google} disabled={busy}>
-              Continuer avec Google
+            <Button type="button" variant="outline" className="w-full" onClick={google} disabled>
+              Google bientôt disponible
             </Button>
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
