@@ -17,7 +17,7 @@ const createInput = z.object({
 
 export const createBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => createInput.parse(d))
+  .inputValidator((d) => createInput.parse(d))
   .handler(async ({ data, context }) => {
     const start = new Date(data.start_at);
     if (Number.isNaN(start.getTime())) throw new Error("Date invalide");
@@ -120,7 +120,7 @@ export const listProBookings = createServerFn({ method: "GET" })
 
 export const cancelBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("bookings")
