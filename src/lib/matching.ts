@@ -89,11 +89,11 @@ function searchScore(pro: Pro, q: string): number {
   return s;
 }
 
-export function matchPros(input: MatchInput): MatchResult[] {
+export function matchPros(input: MatchInput, pros: Pro[] = PROS): MatchResult[] {
   const now = new Date();
   const results: MatchResult[] = [];
 
-  for (const pro of PROS) {
+  for (const pro of pros) {
     if (pro.distanceKm > input.maxKm) continue;
     if (input.atHome && !pro.modes.includes("home")) continue;
     if (input.mode && !pro.modes.includes(input.mode)) continue;
@@ -134,8 +134,8 @@ export function findEligibleProsForRequest(opts: {
   category?: string;
   budget: number;
   atHome: boolean;
-}): Pro[] {
-  return PROS.filter((p) => {
+}, pros: Pro[] = PROS): Pro[] {
+  return pros.filter((p) => {
     if (opts.category && p.category !== opts.category) return false;
     if (opts.atHome && !p.modes.includes("home")) return false;
     if (p.price > opts.budget * 1.5) return false;
