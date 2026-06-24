@@ -72,10 +72,10 @@ function Page() {
     setModes((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
   }
 
-  async function activateProAccount() {
+  async function activateProAccount({ reload = true }: { reload?: boolean } = {}) {
     if (!user) {
       toast.error("Connectez-vous pour activer l'espace professionnel");
-      return;
+      return false;
     }
 
     setActivatingPro(true);
@@ -83,9 +83,11 @@ function Page() {
       const { error: rpcError } = await (supabase.rpc as any)("become_pro");
       if (rpcError) throw rpcError;
       toast.success("Espace professionnel activé");
-      window.location.reload();
+      if (reload) window.location.reload();
+      return true;
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Impossible d'activer l'espace professionnel");
+      return false;
     } finally {
       setActivatingPro(false);
     }
@@ -94,10 +96,6 @@ function Page() {
   async function save() {
     if (!user) {
       toast.error("Connectez-vous pour modifier votre profil pro");
-      return;
-    }
-    if (role !== "pro" && role !== "admin") {
-      toast.error("Ce compte n'est pas un compte professionnel");
       return;
     }
     if (!name.trim() || !job.trim() || !category || !specialty.trim() || !bio.trim()) {
@@ -111,6 +109,11 @@ function Page() {
 
     setSaving(true);
     try {
+      if (role !== "pro" && role !== "admin") {
+        const activated = await activateProAccount({ reload: false });
+        if (!activated) return;
+      }
+
       const cleanName = name.trim();
       const { error: profileError } = await supabase
         .from("profiles")
