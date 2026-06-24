@@ -48,6 +48,7 @@ function Page() {
   const [notifs, setNotifs] = useState({ newRequest: true, message: true, marketing: false });
   const [modes, setModes] = useState<Mode[]>(["home"]);
   const [saving, setSaving] = useState(false);
+  const [activatingPro, setActivatingPro] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -69,6 +70,25 @@ function Page() {
 
   function toggleMode(m: Mode) {
     setModes((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  }
+
+  async function activateProAccount() {
+    if (!user) {
+      toast.error("Connectez-vous pour activer l'espace professionnel");
+      return;
+    }
+
+    setActivatingPro(true);
+    try {
+      const { error: rpcError } = await (supabase.rpc as any)("become_pro");
+      if (rpcError) throw rpcError;
+      toast.success("Espace professionnel activé");
+      window.location.reload();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Impossible d'activer l'espace professionnel");
+    } finally {
+      setActivatingPro(false);
+    }
   }
 
   async function save() {
@@ -151,8 +171,24 @@ function Page() {
         )}
 
         {!loading && role !== "pro" && role !== "admin" && (
-          <section className="bg-card border border-border rounded-3xl p-6 shadow-soft text-sm text-muted-foreground">
-            Ce compte est un compte client. Créez ou connectez un compte professionnel pour compléter une fiche pro.
+          <section className="bg-card border border-border rounded-3xl p-6 shadow-soft">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Activer votre espace professionnel</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Ce compte est actuellement client. Activez le profil pro pour renseigner vos informations publiques et être trouvé par les clients.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={activateProAccount}
+                disabled={activatingPro}
+                className="shrink-0 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl px-5 py-3 text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                {activatingPro && <Loader2 className="w-4 h-4 animate-spin" />}
+                Activer mon profil pro
+              </button>
+            </div>
           </section>
         )}
 
