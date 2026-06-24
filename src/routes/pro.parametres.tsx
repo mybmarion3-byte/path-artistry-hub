@@ -1,8 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker, getPro, type Mode } from "@/lib/booker-store";
-import { Settings, MapPin, Wallet, Bell, Shield, Home as HomeIcon, Building2, Video, Check } from "lucide-react";
-import { useState } from "react";
+import { CATEGORIES, type Mode } from "@/lib/booker-store";
+import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Settings,
+  MapPin,
+  Wallet,
+  Bell,
+  Shield,
+  Home as HomeIcon,
+  Building2,
+  Video,
+  Check,
+  Loader2,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pro/parametres")({
@@ -10,31 +23,108 @@ export const Route = createFileRoute("/pro/parametres")({
   component: Page,
 });
 
-function Page() {
-  const settings = useBooker((s) => s.proSettings);
-  const update = useBooker((s) => s.setProSettings);
-  const proId = useBooker((s) => s.proIdentityId);
-  const setProModes = useBooker((s) => s.setProModes);
-  const pro = getPro(proId);
+function slugify(value: string, fallback: string) {
+  const slug = value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || fallback;
+}
 
-  const [bio, setBio] = useState(pro.bio);
+function Page() {
+  const { user, profile, role, pro, loading, error } = useCurrentUserProfile();
+  const [name, setName] = useState("");
+  const [job, setJob] = useState("");
+  const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("Bien-être");
+  const [specialty, setSpecialty] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [experienceYears, setExperienceYears] = useState(0);
+  const [startingPrice, setStartingPrice] = useState(0);
+  const [radiusKm, setRadiusKm] = useState(5);
   const [iban, setIban] = useState("FR76 •••• •••• •••• 1234");
   const [notifs, setNotifs] = useState({ newRequest: true, message: true, marketing: false });
-  const [modes, setModes] = useState<Mode[]>(pro.modes);
+  const [modes, setModes] = useState<Mode[]>(["home"]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setName(pro?.name ?? profile?.full_name ?? user.email ?? "");
+    setJob(pro?.job ?? "");
+    setCategory((CATEGORIES as readonly string[]).includes(pro?.category ?? "") ? (pro?.category as (typeof CATEGORIES)[number]) : "Bien-être");
+    setSpecialty(pro?.specialty ?? "");
+    setBio(pro?.bio ?? "");
+    setAvatarUrl(pro?.avatar_url ?? "");
+    setExperienceYears(pro?.experience_years ?? 0);
+    setStartingPrice(Number(pro?.starting_price ?? 0));
+    setModes((pro?.modes?.filter((mode): mode is Mode => mode === "home" || mode === "studio" || mode === "video") ?? ["home"]) as Mode[]);
+  }, [profile?.full_name, pro, user]);
+
+  const completion = useMemo(() => {
+    const checks = [name, job, category, specialty, bio, startingPrice > 0, modes.length > 0];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [bio, category, job, modes.length, name, specialty, startingPrice]);
 
   function toggleMode(m: Mode) {
     setModes((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
   }
 
-  function save() {
+  async function save() {
+    if (!user) {
+      toast.error("Connectez-vous pour modifier votre profil pro");
+      return;
+    }
+    if (role !== "pro" && role !== "admin") {
+      toast.error("Ce compte n'est pas un compte professionnel");
+      return;
+    }
+    if (!name.trim() || !job.trim() || !category || !specialty.trim() || !bio.trim()) {
+      toast.error("Complétez les informations publiques essentielles");
+      return;
+    }
     if (modes.length === 0) {
       toast.error("Sélectionnez au moins un mode de prestation");
       return;
     }
-    setProModes(proId, modes);
-    toast.success("Paramètres enregistrés · vos clients ne verront que vos modes actifs");
-  }
 
+    setSaving(true);
+    try {
+      const cleanName = name.trim();
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: cleanName, avatar_url: avatarUrl.trim() || null })
+        .eq("id", user.id);
+      if (profileError) throw profileError;
+
+      const payload = {
+        user_id: user.id,
+        slug: pro?.slug ?? `${slugify(cleanName, "pro")}-${user.id.slice(0, 8)}`,
+        name: cleanName,
+        job: job.trim(),
+        category,
+        specialty: specialty.trim(),
+        bio: bio.trim(),
+        avatar_url: avatarUrl.trim() || null,
+        experience_years: Math.max(0, Number(experienceYears) || 0),
+        starting_price: Math.max(0, Number(startingPrice) || 0),
+        at_home: modes.includes("home"),
+        modes,
+      };
+
+      const { error: proError } = await supabase
+        .from("pros")
+        .upsert(payload, { onConflict: "user_id" });
+      if (proError) throw proError;
+
+      toast.success("Profil pro enregistré · vos informations publiques sont à jour");
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Impossible d'enregistrer le profil pro");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <AppLayout>
@@ -47,17 +137,71 @@ function Page() {
           <p className="text-muted-foreground mt-1">Profil public, zone, paiements et notifications.</p>
         </div>
 
+        {loading && (
+          <section className="bg-card border border-border rounded-3xl p-6 shadow-soft flex items-center gap-3 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Chargement de votre profil professionnel…
+          </section>
+        )}
+
+        {error && (
+          <section className="bg-destructive/10 border border-destructive/20 rounded-3xl p-6 text-sm text-destructive">
+            {error}
+          </section>
+        )}
+
+        {!loading && role !== "pro" && role !== "admin" && (
+          <section className="bg-card border border-border rounded-3xl p-6 shadow-soft text-sm text-muted-foreground">
+            Ce compte est un compte client. Créez ou connectez un compte professionnel pour compléter une fiche pro.
+          </section>
+        )}
+
         {/* Profil public */}
         <Section icon={<Shield className="w-5 h-5 text-emerald-600" />} title="Profil public" desc="Ce que vos clients voient avant de réserver.">
           <div className="flex gap-4">
-            <img src={pro.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500" />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500" />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 flex items-center justify-center text-xl font-semibold text-emerald-700">
+                {name.charAt(0) || "P"}
+              </div>
+            )}
             <div className="flex-1 space-y-3">
-              <Field label="Nom affiché">
-                <input value={pro.name} readOnly className="w-full h-10 px-3 rounded-lg border border-border bg-secondary/40 text-sm" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Nom affiché">
+                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
+                </Field>
+                <Field label="Métier">
+                  <input value={job} onChange={(e) => setJob(e.target.value)} placeholder="Coiffeuse à domicile" className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Catégorie">
+                  <select value={category} onChange={(e) => setCategory(e.target.value as (typeof CATEGORIES)[number])} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm">
+                    {CATEGORIES.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Spécialité">
+                  <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Couleur, massage, coaching…" className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
+                </Field>
+              </div>
+              <Field label="Photo de profil">
+                <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://..." className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
               </Field>
               <Field label="Bio">
                 <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
               </Field>
+            </div>
+          </div>
+          <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-semibold">Profil complété</span>
+              <span className="font-semibold text-emerald-700">{completion}%</span>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${completion}%` }} />
             </div>
           </div>
         </Section>
@@ -100,18 +244,18 @@ function Page() {
         </Section>
 
         {/* Zone */}
-        <Section icon={<MapPin className="w-5 h-5 text-emerald-600" />} title="Zone d'intervention" desc="Définissez votre rayon et budget minimum.">
-
-          <Field label={`Rayon · ${settings.radiusKm} km`}>
-            <input type="range" min={1} max={20} value={settings.radiusKm} onChange={(e) => update({ radiusKm: Number(e.target.value) })} className="w-full accent-emerald-500" />
+        <Section icon={<MapPin className="w-5 h-5 text-emerald-600" />} title="Zone d'intervention" desc="Définissez votre rayon et vos informations de recherche.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label={`Rayon · ${radiusKm} km`}>
+              <input type="range" min={1} max={20} value={radiusKm} onChange={(e) => setRadiusKm(Number(e.target.value))} className="w-full accent-emerald-500" />
+            </Field>
+            <Field label="Prix de départ">
+              <input type="number" min={0} value={startingPrice} onChange={(e) => setStartingPrice(Number(e.target.value))} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
+            </Field>
+          </div>
+          <Field label="Années d'expérience">
+            <input type="number" min={0} value={experienceYears} onChange={(e) => setExperienceYears(Number(e.target.value))} className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm" />
           </Field>
-          <Field label={`Budget minimum accepté · ${settings.minBudget} €`}>
-            <input type="range" min={0} max={150} step={5} value={settings.minBudget} onChange={(e) => update({ minBudget: Number(e.target.value) })} className="w-full accent-emerald-500" />
-          </Field>
-          <label className="flex items-center gap-2 mt-2">
-            <input type="checkbox" checked={settings.autoAccept} onChange={(e) => update({ autoAccept: e.target.checked })} className="accent-emerald-500 w-4 h-4" />
-            <span className="text-sm">Accepter automatiquement les demandes éligibles</span>
-          </label>
         </Section>
 
         {/* Paiement */}
@@ -132,17 +276,19 @@ function Page() {
             <label key={k} className="flex items-center justify-between py-2 border-b border-border last:border-0">
               <span className="text-sm">{label}</span>
               <button
+                type="button"
                 onClick={() => setNotifs({ ...notifs, [k]: !notifs[k] })}
                 className={`w-11 h-6 rounded-full transition relative ${notifs[k] ? "bg-emerald-500" : "bg-secondary"}`}
               >
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition ${notifs[k] ? "left-5.5 translate-x-0" : "left-0.5"}`} style={{ left: notifs[k] ? "calc(100% - 22px)" : "2px" }} />
+                <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition" style={{ left: notifs[k] ? "calc(100% - 22px)" : "2px" }} />
               </button>
             </label>
           ))}
         </Section>
 
         <div className="flex justify-end">
-          <button onClick={save} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-6 py-3 text-sm font-semibold">
+          <button onClick={save} disabled={saving || loading} className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl px-6 py-3 text-sm font-semibold flex items-center gap-2">
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             Enregistrer les modifications
           </button>
         </div>
