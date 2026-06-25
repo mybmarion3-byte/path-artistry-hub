@@ -111,11 +111,36 @@ export const listProBookings = createServerFn({ method: "GET" })
     if (!pro) return [];
     const { data, error } = await context.supabase
       .from("bookings")
-      .select("*")
+      .select("*, profiles:client_id(full_name, phone)")
       .eq("pro_id", pro.id)
       .order("start_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
+  });
+
+export const updateProBookingStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    id: z.string().uuid(),
+    status: z.enum(["confirmed", "cancelled"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: pro } = await context.supabase
+      .from("pros")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!pro) throw new Error("Profil professionnel introuvable");
+
+    const { data: booking, error } = await context.supabase
+      .from("bookings")
+      .update({ status: data.status })
+      .eq("id", data.id)
+      .eq("pro_id", pro.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return booking;
   });
 
 export const cancelBooking = createServerFn({ method: "POST" })
