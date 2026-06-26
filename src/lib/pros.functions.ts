@@ -37,7 +37,7 @@ export const listPros = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const getProBySlug = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ slug: z.string() }).parse(d))
+  .validator((d) => z.object({ slug: z.string() }).parse(d))
   .handler(async ({ data }) => {
     const supabase = publicClient();
     const { data: pro, error } = await supabase
@@ -50,7 +50,7 @@ export const getProBySlug = createServerFn({ method: "GET" })
   });
 
 export const listProServices = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ proId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ proId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const supabase = publicClient();
     const { data: rows, error } = await supabase

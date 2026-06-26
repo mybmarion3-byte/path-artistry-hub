@@ -14,7 +14,7 @@ export const listFavorites = createServerFn({ method: "GET" })
 
 export const toggleFavorite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ pro_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ pro_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: existing } = await context.supabase
       .from("favorites")
