@@ -25,6 +25,7 @@ import { Route as ProRevenusRouteImport } from './routes/pro.revenus'
 import { Route as ProPrestationsRouteImport } from './routes/pro.prestations'
 import { Route as ProParametresRouteImport } from './routes/pro.parametres'
 import { Route as ProMessagesRouteImport } from './routes/pro.messages'
+import { Route as ProDisponibilitesRouteImport } from './routes/pro.disponibilites'
 import { Route as ProDemandesRouteImport } from './routes/pro.demandes'
 import { Route as ProClientsRouteImport } from './routes/pro.clients'
 import { Route as ProAgendaRouteImport } from './routes/pro.agenda'
@@ -109,6 +110,11 @@ const ProMessagesRoute = ProMessagesRouteImport.update({
   path: '/pro/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProDisponibilitesRoute = ProDisponibilitesRouteImport.update({
+  id: '/pro/disponibilites',
+  path: '/pro/disponibilites',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProDemandesRoute = ProDemandesRouteImport.update({
   id: '/pro/demandes',
   path: '/pro/demandes',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/pro/agenda': typeof ProAgendaRoute
   '/pro/clients': typeof ProClientsRoute
   '/pro/demandes': typeof ProDemandesRoute
+  '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/disponibilites'
     | '/pro/messages'
     | '/pro/parametres'
     | '/pro/prestations'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/disponibilites'
     | '/pro/messages'
     | '/pro/parametres'
     | '/pro/prestations'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/pro/agenda'
     | '/pro/clients'
     | '/pro/demandes'
+    | '/pro/disponibilites'
     | '/pro/messages'
     | '/pro/parametres'
     | '/pro/prestations'
@@ -270,6 +282,7 @@ export interface RootRouteChildren {
   ProAgendaRoute: typeof ProAgendaRoute
   ProClientsRoute: typeof ProClientsRoute
   ProDemandesRoute: typeof ProDemandesRoute
+  ProDisponibilitesRoute: typeof ProDisponibilitesRoute
   ProMessagesRoute: typeof ProMessagesRoute
   ProParametresRoute: typeof ProParametresRoute
   ProPrestationsRoute: typeof ProPrestationsRoute
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProMessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pro/disponibilites': {
+      id: '/pro/disponibilites'
+      path: '/pro/disponibilites'
+      fullPath: '/pro/disponibilites'
+      preLoaderRoute: typeof ProDisponibilitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pro/demandes': {
       id: '/pro/demandes'
       path: '/pro/demandes'
@@ -430,6 +450,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProAgendaRoute: ProAgendaRoute,
   ProClientsRoute: ProClientsRoute,
   ProDemandesRoute: ProDemandesRoute,
+  ProDisponibilitesRoute: ProDisponibilitesRoute,
   ProMessagesRoute: ProMessagesRoute,
   ProParametresRoute: ProParametresRoute,
   ProPrestationsRoute: ProPrestationsRoute,
