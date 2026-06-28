@@ -24,6 +24,7 @@ import { Route as ProIndexRouteImport } from './routes/pro.index'
 import { Route as ProRevenusRouteImport } from './routes/pro.revenus'
 import { Route as ProPrestationsRouteImport } from './routes/pro.prestations'
 import { Route as ProParametresRouteImport } from './routes/pro.parametres'
+import { Route as ProOnboardingOffreRouteImport } from './routes/pro.onboarding-offre'
 import { Route as ProMessagesRouteImport } from './routes/pro.messages'
 import { Route as ProDisponibilitesRouteImport } from './routes/pro.disponibilites'
 import { Route as ProDemandesRouteImport } from './routes/pro.demandes'
@@ -105,6 +106,11 @@ const ProParametresRoute = ProParametresRouteImport.update({
   path: '/pro/parametres',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProOnboardingOffreRoute = ProOnboardingOffreRouteImport.update({
+  id: '/pro/onboarding-offre',
+  path: '/pro/onboarding-offre',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProMessagesRoute = ProMessagesRouteImport.update({
   id: '/pro/messages',
   path: '/pro/messages',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/pro/demandes': typeof ProDemandesRoute
   '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
+  '/pro/onboarding-offre': typeof ProOnboardingOffreRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/pro/demandes': typeof ProDemandesRoute
   '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
+  '/pro/onboarding-offre': typeof ProOnboardingOffreRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/pro/demandes': typeof ProDemandesRoute
   '/pro/disponibilites': typeof ProDisponibilitesRoute
   '/pro/messages': typeof ProMessagesRoute
+  '/pro/onboarding-offre': typeof ProOnboardingOffreRoute
   '/pro/parametres': typeof ProParametresRoute
   '/pro/prestations': typeof ProPrestationsRoute
   '/pro/revenus': typeof ProRevenusRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/pro/demandes'
     | '/pro/disponibilites'
     | '/pro/messages'
+    | '/pro/onboarding-offre'
     | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/pro/demandes'
     | '/pro/disponibilites'
     | '/pro/messages'
+    | '/pro/onboarding-offre'
     | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/pro/demandes'
     | '/pro/disponibilites'
     | '/pro/messages'
+    | '/pro/onboarding-offre'
     | '/pro/parametres'
     | '/pro/prestations'
     | '/pro/revenus'
@@ -284,6 +296,7 @@ export interface RootRouteChildren {
   ProDemandesRoute: typeof ProDemandesRoute
   ProDisponibilitesRoute: typeof ProDisponibilitesRoute
   ProMessagesRoute: typeof ProMessagesRoute
+  ProOnboardingOffreRoute: typeof ProOnboardingOffreRoute
   ProParametresRoute: typeof ProParametresRoute
   ProPrestationsRoute: typeof ProPrestationsRoute
   ProRevenusRoute: typeof ProRevenusRoute
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProParametresRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pro/onboarding-offre': {
+      id: '/pro/onboarding-offre'
+      path: '/pro/onboarding-offre'
+      fullPath: '/pro/onboarding-offre'
+      preLoaderRoute: typeof ProOnboardingOffreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pro/messages': {
       id: '/pro/messages'
       path: '/pro/messages'
@@ -452,6 +472,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProDemandesRoute: ProDemandesRoute,
   ProDisponibilitesRoute: ProDisponibilitesRoute,
   ProMessagesRoute: ProMessagesRoute,
+  ProOnboardingOffreRoute: ProOnboardingOffreRoute,
   ProParametresRoute: ProParametresRoute,
   ProPrestationsRoute: ProPrestationsRoute,
   ProRevenusRoute: ProRevenusRoute,
