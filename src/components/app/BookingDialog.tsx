@@ -30,7 +30,6 @@ import {
   getPro,
   useBooker,
   BUSINESSES,
-  DEFAULT_ADDRESSES,
   getBusinessesForPro,
   getProsForBusiness,
   type Pro,
@@ -39,15 +38,17 @@ import {
   type BusinessLocation,
   type ClientAddress,
 } from "@/lib/booker-store";
+import {
+  createAddress as createAddressFn,
+  listMyAddresses as listMyAddressesFn,
+} from "@/lib/addresses.functions";
 import { createBooking as createBookingFn } from "@/lib/bookings.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ACCOUNT_PROFILE,
   ADDRESS_SUGGESTIONS_DB,
   CURRENT_LOCATION_LABEL,
-  FAVORITE_ADDRESS_ID,
   HAS_DIGICODE,
-  HAS_MAIN_ADDRESS,
   buildSteps,
   modeLabel,
 } from "@/components/app/booking-dialog-model";
@@ -75,13 +76,15 @@ export function BookingDialog({
   const navigate = useNavigate();
   const pushNotification = useBooker((s) => s.pushNotification);
   const createBookingServer = useServerFn(createBookingFn);
+  const listMyAddressesServer = useServerFn(listMyAddressesFn);
+  const createAddressServer = useServerFn(createAddressFn);
   const queryClient = useQueryClient();
 
   const [stepIdx, setStepIdx] = useState(0);
   const [serviceId, setServiceId] = useState<string | undefined>(undefined);
   const [slotIso, setSlotIso] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>("home");
-  const [addressId, setAddressId] = useState<string | undefined>("a1");
+  const [addressId, setAddressId] = useState<string | undefined>("custom");
   const [customAddress, setCustomAddress] = useState("");
   const [businessId, setBusinessId] = useState<string | undefined>(undefined);
   const [collaboratorId, setCollaboratorId] = useState<string | "any">("any");
@@ -90,6 +93,9 @@ export function BookingDialog({
   const [comments, setComments] = useState("");
   const [localAddresses, setLocalAddresses] = useState<ClientAddress[]>([]);
   const [isCreatingAddress, setIsCreatingAddress] = useState(false);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [addressSaving, setAddressSaving] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state) return;
@@ -101,12 +107,13 @@ export function BookingDialog({
     const defaultMode: Mode = state.pro.modes.includes("home") ? "home" : state.pro.modes[0];
 
     setMode(defaultMode);
-    setAddressId(HAS_MAIN_ADDRESS ? "a1" : "custom");
+    setAddressId("custom");
     setCustomAddress("");
-    setLocalAddresses(
-      HAS_MAIN_ADDRESS ? DEFAULT_ADDRESSES : DEFAULT_ADDRESSES.filter((a) => a.kind !== "home"),
-    );
+    setLocalAddresses([]);
     setIsCreatingAddress(false);
+    setAddressesLoading(false);
+    setAddressSaving(false);
+    setAddressError(null);
 
     const bizForPro = getBusinessesForPro(state.pro.id);
     setBusinessId(bizForPro[0]?.id);
@@ -115,6 +122,64 @@ export function BookingDialog({
     setDigicode(ACCOUNT_PROFILE.digicode);
     setComments("");
   }, [state]);
+
+  useEffect(() => {
+    if (!state) return;
+
+    let cancelled = false;
+
+    async function loadAddresses() {
+      setAddressesLoading(true);
+      setAddressError(null);
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+
+        if (!sessionData.session) {
+          if (!cancelled) {
+            setLocalAddresses([]);
+            setAddressId("custom");
+          }
+          return;
+        }
+
+        const rows = await listMyAddressesServer();
+        if (cancelled) return;
+
+        const addresses = rows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          kind: row.kind,
+          address: row.address,
+        }));
+
+        setLocalAddresses(addresses);
+        setAddressId((current) => {
+          if (current && current !== "custom" && addresses.some((a) => a.id === current)) {
+            return current;
+          }
+
+          return addresses[0]?.id ?? "custom";
+        });
+      } catch (e) {
+        if (!cancelled) {
+          const message =
+            e instanceof Error ? e.message : "Impossible de charger vos adresses enregistrées.";
+          setAddressError(message);
+          setLocalAddresses([]);
+          setAddressId("custom");
+        }
+      } finally {
+        if (!cancelled) setAddressesLoading(false);
+      }
+    }
+
+    void loadAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listMyAddressesServer, state]);
 
   const sourcePro = state?.pro ?? null;
 
@@ -224,12 +289,15 @@ export function BookingDialog({
 
     const addressText =
       mode === "home" ? finalAddress : mode === "studio" ? selectedBusiness?.address : undefined;
+    const bookingAddressId =
+      mode === "home" && addressId && addressId !== "custom" ? addressId : undefined;
 
     try {
       await createBookingServer({
         data: {
           pro_slug: (bookedPro as any).slug ?? bookedPro.id,
           service_slug: (service as any).slug ?? service.id,
+          address_id: bookingAddressId,
           address_text: addressText,
           mode,
           start_at: startAt,
@@ -306,20 +374,44 @@ export function BookingDialog({
               distanceKm={distanceKm}
               etaMin={etaMin}
               isCreatingAddress={isCreatingAddress}
+              loading={addressesLoading}
+              error={addressError}
+              saving={addressSaving}
               onStartCreate={() => setIsCreatingAddress(true)}
               onCancelCreate={() => setIsCreatingAddress(false)}
-              onSaveCreate={(label, address, kind) => {
-                const newAddr: ClientAddress = {
-                  id: "created-" + Date.now(),
-                  label,
-                  address,
-                  kind,
-                };
+              onSaveCreate={async (label, address, kind) => {
+                setAddressSaving(true);
+                setAddressError(null);
 
-                setLocalAddresses((prev) => [...prev, newAddr]);
-                setAddressId(newAddr.id);
-                setIsCreatingAddress(false);
-                toast.success("Adresse principale créée !");
+                try {
+                  const row = await createAddressServer({
+                    data: {
+                      label,
+                      address,
+                      kind,
+                      is_primary: localAddresses.length === 0,
+                    },
+                  });
+                  const newAddr: ClientAddress = {
+                    id: row.id,
+                    label: row.label,
+                    address: row.address,
+                    kind: row.kind,
+                  };
+
+                  setLocalAddresses((prev) => [...prev, newAddr]);
+                  setAddressId(newAddr.id);
+                  setCustomAddress("");
+                  setIsCreatingAddress(false);
+                  toast.success("Adresse enregistrée !");
+                } catch (e) {
+                  const message =
+                    e instanceof Error ? e.message : "Impossible d'enregistrer cette adresse.";
+                  setAddressError(message);
+                  toast.error(message);
+                } finally {
+                  setAddressSaving(false);
+                }
               }}
             />
           )}
@@ -521,6 +613,9 @@ function StepAddress({
   distanceKm,
   etaMin,
   isCreatingAddress,
+  loading,
+  error,
+  saving,
   onStartCreate,
   onCancelCreate,
   onSaveCreate,
@@ -533,9 +628,12 @@ function StepAddress({
   distanceKm: number;
   etaMin: number;
   isCreatingAddress: boolean;
+  loading: boolean;
+  error: string | null;
+  saving: boolean;
   onStartCreate: () => void;
   onCancelCreate: () => void;
-  onSaveCreate: (label: string, address: string, kind: ClientAddress["kind"]) => void;
+  onSaveCreate: (label: string, address: string, kind: ClientAddress["kind"]) => Promise<void>;
 }) {
   const iconFor = (k: ClientAddress["kind"]) =>
     k === "home" ? HomeIcon : k === "hotel" ? Hotel : k === "office" ? Briefcase : MapPin;
@@ -543,7 +641,7 @@ function StepAddress({
 
   // Pré-remplissage intelligent depuis le compte client
   const suggestedLabel = `Chez ${ACCOUNT_PROFILE.firstName}`;
-  const favoriteAddress = DEFAULT_ADDRESSES.find((a) => a.id === FAVORITE_ADDRESS_ID);
+  const favoriteAddress = addresses[0];
 
   const [newLabel, setNewLabel] = useState(suggestedLabel);
   const [newAddress, setNewAddress] = useState("");
@@ -765,13 +863,13 @@ function StepAddress({
         </div>
 
         {/* Adresses enregistrées */}
-        {DEFAULT_ADDRESSES.length > 0 && (
+        {addresses.length > 0 && (
           <div>
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               🏠 Mes adresses enregistrées
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_ADDRESSES.map((a) => {
+              {addresses.map((a) => {
                 const Icon = iconFor(a.kind);
                 return (
                   <button
@@ -934,13 +1032,13 @@ function StepAddress({
           </button>
           <button
             type="button"
-            disabled={!newLabel.trim() || !newAddress.trim()}
+            disabled={saving || !newLabel.trim() || !newAddress.trim()}
             onClick={() => {
-              onSaveCreate(newLabel.trim(), newAddress.trim(), newKind);
+              void onSaveCreate(newLabel.trim(), newAddress.trim(), newKind);
             }}
             className="flex-[2] bg-gradient-primary text-primary-foreground rounded-xl py-2 text-sm font-semibold shadow-glow disabled:opacity-50"
           >
-            Valider et revenir
+            {saving ? "Enregistrement..." : "Valider et revenir"}
           </button>
         </div>
       </div>
@@ -950,7 +1048,19 @@ function StepAddress({
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Où le pro doit-il venir&nbsp;?</div>
-      {!HAS_MAIN_ADDRESS && addresses.length === 0 && (
+      {loading && (
+        <div className="mb-3 rounded-2xl bg-secondary/50 border border-border p-3 text-xs text-muted-foreground flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          Chargement de vos adresses enregistrées...
+        </div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-2xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {!loading && addresses.length === 0 && (
         <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
