@@ -17,6 +17,7 @@ type BookingRow = {
   id: string;
   service_name: string;
   address_text: string | null;
+  phone: string | null;
   mode: string;
   start_at: string;
   price: number | string;
@@ -24,6 +25,11 @@ type BookingRow = {
   profiles?: {
     full_name: string | null;
     phone: string | null;
+  } | null;
+  client_addresses?: {
+    label: string | null;
+    address: string | null;
+    kind: string | null;
   } | null;
 };
 
@@ -174,6 +180,9 @@ function BookingCard({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const addressText = booking.client_addresses?.address ?? booking.address_text ?? booking.mode;
+  const clientPhone = booking.phone ?? booking.profiles?.phone;
+
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-soft hover:border-emerald-500/40 transition">
       <div className="flex items-start justify-between gap-4">
@@ -184,8 +193,9 @@ function BookingCard({
             <span className="text-sm text-muted-foreground">· {booking.profiles?.full_name ?? "Client"}</span>
           </div>
           <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {booking.address_text ?? booking.mode}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {addressText}</span>
             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {formatDate(booking.start_at)}</span>
+            {clientPhone && <span>{clientPhone}</span>}
           </div>
         </div>
         <div className="text-right shrink-0">

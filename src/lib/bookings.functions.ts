@@ -110,7 +110,7 @@ export const listMyBookings = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("bookings")
-      .select("*, pros:pro_id(name, avatar_url, job, slug)")
+      .select("*, pros:pro_id(name, avatar_url, job, slug), client_addresses:address_id(label, address, kind)")
       .eq("client_id", context.userId)
       .order("start_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -128,7 +128,7 @@ export const listProBookings = createServerFn({ method: "GET" })
     if (!pro) return [];
     const { data, error } = await context.supabase
       .from("bookings")
-      .select("*, profiles:client_id(full_name, phone)")
+      .select("*, profiles:client_id(full_name, phone), client_addresses:address_id(label, address, kind)")
       .eq("pro_id", pro.id)
       .order("start_at", { ascending: true });
     if (error) throw new Error(error.message);
