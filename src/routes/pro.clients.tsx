@@ -1,56 +1,94 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker } from "@/lib/booker-store";
-import { Users, Star, MessageSquare, Search, Plus, X, Crown } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Users, Star, Search, Crown, Inbox } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { AppLayout } from "@/components/app/AppLayout";
+import { listProBookings } from "@/lib/bookings.functions";
 
 export const Route = createFileRoute("/pro/clients")({
   head: () => ({ meta: [{ title: "Mes clients — Booker Pro" }] }),
   component: Page,
 });
 
-function Page() {
-  const clients = useBooker((s) => s.proClients);
-  const addClient = useBooker((s) => s.addProClient);
-  const updateNote = useBooker((s) => s.updateProClientNote);
-  const toggleVip = useBooker((s) => s.toggleProClientVip);
-  const sendMessage = useBooker((s) => s.sendMessage);
-  const navigate = useNavigate();
+type BookingRow = {
+  id: string;
+  client_id: string;
+  service_name: string;
+  start_at: string;
+  price: number | string;
+  status: "pending" | "confirmed" | "cancelled" | "completed";
+  profiles?: {
+    full_name: string | null;
+    phone: string | null;
+  } | null;
+};
 
+type ClientSummary = {
+  id: string;
+  name: string;
+  phone: string | null;
+  visits: number;
+  spent: number;
+  rating: number;
+  vip: boolean;
+  lastService: string;
+  lastDate: string;
+};
+
+function Page() {
+  const fetchBookings = useServerFn(listProBookings);
   const [q, setQ] = useState("");
-  const [openNote, setOpenNote] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [openNew, setOpenNew] = useState(false);
-  const [draft, setDraft] = useState({ name: "", lastService: "Brushing" });
+
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["bookings", "pro", "clients"],
+    queryFn: () => fetchBookings(),
+  });
+
+  const clients = useMemo(() => {
+    const byClient = new Map<string, ClientSummary & { lastTime: number }>();
+
+    for (const booking of bookings as BookingRow[]) {
+      if (booking.status === "cancelled") continue;
+
+      const start = new Date(booking.start_at);
+      const existing = byClient.get(booking.client_id);
+      const spent = Number(booking.price);
+      const base = existing ?? {
+        id: booking.client_id,
+        name: booking.profiles?.full_name ?? "Client",
+        phone: booking.profiles?.phone ?? null,
+        visits: 0,
+        spent: 0,
+        rating: 5,
+        vip: false,
+        lastService: booking.service_name,
+        lastDate: start.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" }),
+        lastTime: start.getTime(),
+      };
+
+      base.visits += 1;
+      base.spent += Number.isFinite(spent) ? spent : 0;
+
+      if (start.getTime() >= base.lastTime) {
+        base.lastService = booking.service_name;
+        base.lastDate = start.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" });
+        base.lastTime = start.getTime();
+      }
+
+      base.vip = base.visits >= 3 || base.spent >= 300;
+      byClient.set(booking.client_id, base);
+    }
+
+    return Array.from(byClient.values())
+      .sort((a, b) => b.lastTime - a.lastTime)
+      .map(({ lastTime: _lastTime, ...client }) => client);
+  }, [bookings]);
 
   const filtered = useMemo(
-    () => clients.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())),
+    () => clients.filter((client) => client.name.toLowerCase().includes(q.toLowerCase())),
     [clients, q],
   );
-
-  function openEditNote(id: string) {
-    setOpenNote(id);
-    setNoteDraft(clients.find((c) => c.id === id)?.note ?? "");
-  }
-  function saveNote() {
-    if (!openNote) return;
-    updateNote(openNote, noteDraft);
-    toast.success("Note enregistrée");
-    setOpenNote(null);
-  }
-  function message(name: string) {
-    sendMessage("camille", `Bonjour ${name.split(" ")[0]} 👋`);
-    toast.success(`Message envoyé à ${name.split(" ")[0]}`);
-    navigate({ to: "/messages" });
-  }
-  function createClient() {
-    if (!draft.name.trim()) return toast.error("Nom requis");
-    addClient({ ...draft, visits: 0, spent: 0, rating: 5 });
-    toast.success("Client ajouté");
-    setOpenNew(false);
-    setDraft({ name: "", lastService: "Brushing" });
-  }
 
   return (
     <AppLayout>
@@ -61,14 +99,16 @@ function Page() {
             <h1 className="text-3xl font-semibold flex items-center gap-3">
               <Users className="w-7 h-7 text-emerald-600" /> Mes clients
             </h1>
-            <p className="text-muted-foreground mt-1">{clients.length} clients · {clients.filter((c) => c.vip).length} VIP</p>
+            <p className="text-muted-foreground mt-1">
+              {clients.length} clients issus des réservations · {clients.filter((client) => client.vip).length} VIP
+            </p>
           </div>
-          <button
-            onClick={() => setOpenNew(true)}
+          <Link
+            to="/pro/demandes"
             className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Nouveau client
-          </button>
+            <Inbox className="w-4 h-4" /> Voir demandes
+          </Link>
         </div>
 
         <div className="mt-5 relative max-w-md">
@@ -90,97 +130,48 @@ function Page() {
                 <th className="text-left px-5 py-3">Dernier service</th>
                 <th className="text-left px-5 py-3">Total dépensé</th>
                 <th className="text-left px-5 py-3">Note</th>
-                <th className="text-left px-5 py-3">Mémo</th>
-                <th className="px-5 py-3" />
+                <th className="text-left px-5 py-3">Dernier RDV</th>
+                <th className="text-left px-5 py-3">Contact</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Aucun client trouvé.</td></tr>
+              {isLoading && (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 text-muted-foreground">Chargement des clients...</td>
+                </tr>
               )}
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-t border-border hover:bg-secondary/30">
+              {!isLoading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-10 text-muted-foreground">
+                    Aucun client trouvé. Les clients apparaîtront ici après leurs réservations.
+                  </td>
+                </tr>
+              )}
+              {!isLoading && filtered.map((client) => (
+                <tr key={client.id} className="border-t border-border hover:bg-secondary/30">
                   <td className="px-5 py-3 font-medium">
-                    <button onClick={() => toggleVip(c.id)} className="inline-flex items-center gap-2" title={c.vip ? "Retirer VIP" : "Marquer VIP"}>
-                      {c.vip && <Crown className="w-4 h-4 text-warning fill-warning" />}
-                      {c.name}
-                    </button>
+                    <span className="inline-flex items-center gap-2">
+                      {client.vip && <Crown className="w-4 h-4 text-warning fill-warning" />}
+                      {client.name}
+                    </span>
                   </td>
-                  <td className="px-5 py-3">{c.visits}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.lastService}</td>
-                  <td className="px-5 py-3 font-semibold">{c.spent} €</td>
-                  <td className="px-5 py-3"><span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 fill-warning text-warning" />{c.rating}</span></td>
+                  <td className="px-5 py-3">{client.visits}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{client.lastService}</td>
+                  <td className="px-5 py-3 font-semibold">{client.spent.toFixed(0)} €</td>
                   <td className="px-5 py-3">
-                    <button onClick={() => openEditNote(c.id)} className="text-xs text-emerald-600 hover:underline truncate max-w-[180px] block text-left">
-                      {c.note ? c.note.slice(0, 30) + (c.note.length > 30 ? "…" : "") : "+ ajouter"}
-                    </button>
+                    <span className="flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-warning text-warning" />
+                      {client.rating}
+                    </span>
                   </td>
-                  <td className="px-5 py-3">
-                    <button onClick={() => message(c.name)} className="text-emerald-600 hover:text-emerald-700" title="Envoyer un message">
-                      <MessageSquare className="w-4 h-4" />
-                    </button>
-                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">{client.lastDate}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{client.phone ?? "Non renseigné"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {openNote && (
-        <Modal title="Mémo client" onClose={() => setOpenNote(null)}>
-          <textarea
-            autoFocus
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            rows={5}
-            placeholder="Allergies, préférences, anecdotes…"
-            className="w-full p-3 rounded-lg border border-border bg-background text-sm"
-          />
-          <button onClick={saveNote} className="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2.5 text-sm font-semibold">
-            Enregistrer
-          </button>
-        </Modal>
-      )}
-
-      {openNew && (
-        <Modal title="Nouveau client" onClose={() => setOpenNew(false)}>
-          <div className="space-y-3">
-            <input
-              autoFocus
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="Nom complet"
-              className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm"
-            />
-            <input
-              value={draft.lastService}
-              onChange={(e) => setDraft({ ...draft, lastService: e.target.value })}
-              placeholder="Dernier service"
-              className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm"
-            />
-          </div>
-          <button onClick={createClient} className="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2.5 text-sm font-semibold">
-            Ajouter
-          </button>
-        </Modal>
-      )}
     </AppLayout>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-card" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }
