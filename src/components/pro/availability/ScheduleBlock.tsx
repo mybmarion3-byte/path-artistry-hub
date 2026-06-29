@@ -1,4 +1,4 @@
-import { Building2, Clock, Home, Monitor, Trash2 } from "lucide-react";
+import { Building2, Clock, Edit, Home, Monitor, Trash2 } from "lucide-react";
 import type { ProLocation } from "@/hooks/use-pro-locations";
 
 export type ActivityBlockView = {
@@ -19,10 +19,12 @@ function getIcon(type?: string) {
 export function ScheduleBlock({
   block,
   location,
+  onEdit,
   onDelete,
 }: {
   block: ActivityBlockView;
   location?: ProLocation;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -52,13 +54,23 @@ export function ScheduleBlock({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onDelete}
-          className="w-8 h-8 rounded-lg hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onDelete}
+            className="w-8 h-8 rounded-lg hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

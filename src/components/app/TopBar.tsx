@@ -181,7 +181,7 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
   async function signOut() {
     await supabase.auth.signOut();
     setOpen(false);
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", search: { redirect: "/" } });
   }
 
   if (loading) {
@@ -192,6 +192,7 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
     return (
       <Link
         to="/auth"
+        search={{ redirect: "/" }}
         className="flex items-center gap-2 px-4 h-12 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold shadow-glow hover:opacity-90 transition"
       >
         <LogIn className="w-4 h-4" />

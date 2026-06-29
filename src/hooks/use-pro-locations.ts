@@ -55,6 +55,10 @@ export function useProLocations(proId?: string | null) {
   async function createLocation(
     location: Omit<ProLocation, "id">
   ) {
+    if (!proId) {
+      throw new Error("Fiche professionnelle introuvable.");
+    }
+
     const { error } = await supabase
       .from("pro_locations")
       .insert({

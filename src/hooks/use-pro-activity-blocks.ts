@@ -124,6 +124,10 @@ export function useProActivityBlocks(proId: string | null | undefined) {
   }
 
   async function updateBlock(id: string, draft: ActivityBlockDraft) {
+    if (!proId) {
+      throw new Error("Fiche professionnelle introuvable.");
+    }
+
     validateDraft(draft);
     setSaving(true);
     setError(null);
@@ -151,6 +155,10 @@ export function useProActivityBlocks(proId: string | null | undefined) {
   }
 
   async function disableBlock(id: string) {
+    if (!proId) {
+      throw new Error("Fiche professionnelle introuvable.");
+    }
+
     setSaving(true);
     setError(null);
 

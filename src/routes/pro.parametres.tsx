@@ -193,7 +193,9 @@ function Page() {
               </div>
               <button
                 type="button"
-                onClick={activateProAccount}
+                onClick={() => {
+                  void activateProAccount();
+                }}
                 disabled={activatingPro}
                 className="shrink-0 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl px-5 py-3 text-sm font-semibold flex items-center justify-center gap-2"
               >

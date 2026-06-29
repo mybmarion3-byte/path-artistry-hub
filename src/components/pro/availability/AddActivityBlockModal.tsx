@@ -52,10 +52,11 @@ export function AddActivityBlockModal({
   }, [open, block, firstLocationId]);
 
   if (!open || !dayOfWeek) return null;
+  const selectedDayOfWeek = dayOfWeek;
 
   async function handleSubmit() {
     await onSubmit({
-      dayOfWeek,
+      dayOfWeek: selectedDayOfWeek,
       locationId,
       startTime,
       endTime,
@@ -71,7 +72,7 @@ export function AddActivityBlockModal({
             <div className="text-xs font-semibold uppercase tracking-wider text-primary">
               {block ? "Modifier le bloc" : "Nouveau bloc d’activité"}
             </div>
-            <h2 className="text-2xl font-semibold mt-1">{DAYS[dayOfWeek]}</h2>
+            <h2 className="text-2xl font-semibold mt-1">{DAYS[selectedDayOfWeek]}</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Choisissez le lieu et les horaires de travail.
             </p>
