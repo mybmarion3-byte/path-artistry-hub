@@ -1,7 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker, getPro } from "@/lib/booker-store";
-import { useState } from "react";
+import { listMyBookings } from "@/lib/bookings.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/calendrier")({
   head: () => ({ meta: [{ title: "Calendrier — Booker NoW" }] }),
@@ -9,7 +12,12 @@ export const Route = createFileRoute("/calendrier")({
 });
 
 function Page() {
-  const bookings = useBooker((s) => s.bookings);
+  const navigate = useNavigate();
+  const fetchBookings = useServerFn(listMyBookings);
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["bookings", "me", "calendar"],
+    queryFn: () => fetchBookings(),
+  });
   const [month] = useState(() => new Date());
   const year = month.getFullYear();
   const m = month.getMonth();
@@ -18,10 +26,21 @@ function Page() {
   const monthLabel = month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   const today = new Date().toISOString().slice(0, 10);
 
-  const byDate = bookings.reduce<Record<string, typeof bookings>>((acc, b) => {
-    (acc[b.date] ??= []).push(b);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) navigate({ to: "/auth", search: { redirect: "/calendrier" } });
+    });
+  }, [navigate]);
+
+  const byDate = (bookings as any[]).reduce<Record<string, any[]>>((acc, b) => {
+    const date = new Date(b.start_at).toISOString().slice(0, 10);
+    (acc[date] ??= []).push(b);
     return acc;
   }, {});
+
+  const upcoming = (bookings as any[])
+    .filter((b) => b.status === "pending" || b.status === "confirmed")
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
 
   return (
     <AppLayout>
@@ -48,7 +67,8 @@ function Page() {
                     <div className="flex-1 mt-1 space-y-0.5 overflow-hidden">
                       {events.slice(0, 2).map((e) => (
                         <div key={e.id} className="text-[10px] truncate bg-gradient-primary text-primary-foreground px-1 py-0.5 rounded">
-                          {getPro(e.proId).name.split(" ")[0]} {e.time}
+                          {(e.pros?.name ?? "Pro").split(" ")[0]}{" "}
+                          {new Date(e.start_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                         </div>
                       ))}
                     </div>
@@ -61,19 +81,32 @@ function Page() {
           <div className="bg-card border border-border rounded-3xl p-6 shadow-soft h-fit">
             <h3 className="font-semibold">Prochains rendez-vous</h3>
             <div className="mt-4 space-y-3">
-              {bookings.filter((b) => b.status === "upcoming").slice(0, 5).map((b) => {
-                const p = getPro(b.proId);
+              {isLoading && (
+                <p className="text-sm text-muted-foreground text-center py-4">Chargement...</p>
+              )}
+              {!isLoading && upcoming.slice(0, 5).map((b) => {
+                const p = b.pros;
+                const start = new Date(b.start_at);
                 return (
                   <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary">
-                    <img src={p.avatar} className="w-10 h-10 rounded-full object-cover" alt="" />
+                    {p?.avatar_url ? (
+                      <img src={p.avatar_url} className="w-10 h-10 rounded-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-primary text-white flex items-center justify-center text-sm font-semibold">
+                        {(p?.name ?? "P").charAt(0)}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">{b.date} • {b.time}</div>
+                      <div className="text-sm font-medium truncate">{p?.name ?? "Pro"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {start.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })} •{" "}
+                        {start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </div>
                     </div>
                   </div>
                 );
               })}
-              {bookings.length === 0 && (
+              {!isLoading && upcoming.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">Aucun rendez-vous prévu.</p>
               )}
             </div>

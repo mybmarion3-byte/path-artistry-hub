@@ -1,6 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker, getPro } from "@/lib/booker-store";
+import { useBooker } from "@/lib/booker-store";
+import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
+import { listProBookings, updateProBookingStatus } from "@/lib/bookings.functions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Calendar, Clock, MapPin, TrendingUp, Wallet, Users, Inbox, Check, X,
   ArrowRight, Star, Zap, Home as HomeIcon,
@@ -24,51 +28,118 @@ function fmtHour(h: number) {
   return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
 }
 
+type BookingRow = {
+  id: string;
+  service_name: string;
+  address_text: string | null;
+  mode: string;
+  start_at: string;
+  end_at: string | null;
+  price: number | string;
+  status: "pending" | "confirmed" | "cancelled" | "completed";
+  phone: string | null;
+  profiles?: {
+    full_name: string | null;
+    phone: string | null;
+  } | null;
+  client_addresses?: {
+    label: string | null;
+    address: string | null;
+    kind: string | null;
+  } | null;
+};
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatBookingDate(value: string) {
+  const date = new Date(value);
+  return date.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }) +
+    " · " +
+    date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
 
 
 function ProDashboard() {
-  const proIdentityId = useBooker((s) => s.proIdentityId);
-  const pro = getPro(proIdentityId);
-  const proInbox = useBooker((s) => s.proInbox);
-  const accept = useBooker((s) => s.acceptProRequest);
-  const decline = useBooker((s) => s.declineProRequest);
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
-  const pushNotification = useBooker((s) => s.pushNotification);
-  const agenda = useBooker((s) => s.proAgenda);
-  const addAgenda = useBooker((s) => s.addAgendaSlot);
+  const { pro, loading: profileLoading, error: profileError } = useCurrentUserProfile();
+  const fetchBookings = useServerFn(listProBookings);
+  const updateStatus = useServerFn(updateProBookingStatus);
+  const queryClient = useQueryClient();
 
-  const today = agenda.filter((a) => a.day === 0).sort((a, b) => a.hour - b.hour);
-  const nowHour = new Date().getHours();
-  const todayWithStatus = today.map((a) => ({
-    ...a,
-    status: a.hour + a.dur <= nowHour ? "done" : a.hour <= nowHour + 1 ? "next" : "upcoming",
-  })) as Array<(typeof today)[number] & { status: "done" | "next" | "upcoming" }>;
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["bookings", "pro", "dashboard"],
+    queryFn: () => fetchBookings(),
+    enabled: !!pro?.id,
+  });
 
-  const pending = proInbox.filter((r) => r.status === "pending");
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "confirmed" | "cancelled" }) =>
+      updateStatus({ data: { id, status } }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["bookings", "pro"] });
+      queryClient.invalidateQueries({ queryKey: ["bookings", "pro", "agenda"] });
+      queryClient.invalidateQueries({ queryKey: ["bookings", "pro", "dashboard"] });
+      toast.success(variables.status === "confirmed" ? "Demande acceptée" : "Demande déclinée");
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Impossible de mettre à jour la demande"),
+  });
+
+  const rows = bookings as BookingRow[];
+  const now = new Date();
+  const todayBookings = rows
+    .filter((booking) => isSameDay(new Date(booking.start_at), now))
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+
+  const todayWithStatus = todayBookings
+    .filter((booking) => booking.status === "confirmed" || booking.status === "completed")
+    .map((booking) => {
+      const start = new Date(booking.start_at);
+      const end = booking.end_at ? new Date(booking.end_at) : new Date(start.getTime() + 60 * 60_000);
+      const hour = start.getHours() + start.getMinutes() / 60;
+      const duration = Math.max(0.5, (end.getTime() - start.getTime()) / 3_600_000);
+      return {
+        id: booking.id,
+        hour,
+        dur: duration,
+        clientName: booking.profiles?.full_name ?? "Client",
+        serviceName: booking.service_name,
+        price: Number(booking.price),
+        status:
+          booking.status === "completed" || end.getTime() <= now.getTime()
+            ? "done"
+            : start.getTime() <= now.getTime() + 60 * 60_000
+              ? "next"
+              : "upcoming",
+      };
+    }) as Array<{
+      id: string;
+      hour: number;
+      dur: number;
+      clientName: string;
+      serviceName: string;
+      price: number;
+      status: "done" | "next" | "upcoming";
+    }>;
+
+  const pending = rows.filter((booking) => booking.status === "pending");
   const todayRevenue = todayWithStatus.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
   const dayTotal = todayWithStatus.reduce((s, a) => s + a.price, 0);
 
   function handleAccept(id: string) {
-    const req = proInbox.find((r) => r.id === id);
-    if (!req) return;
-    accept(id);
-    addAgenda({
-      day: req.when.toLowerCase().startsWith("demain") ? 1 : 0,
-      hour: 17,
-      dur: 1,
-      label: `${req.serviceName} · ${req.clientName.split(" ")[0]}`,
-      clientName: req.clientName,
-      serviceName: req.serviceName,
-      price: req.price,
-    });
-    pushNotification({ title: "Demande acceptée", body: `${req.serviceName} — ${req.clientName}` });
-    toast.success(`Demande de ${req.clientName} acceptée`);
+    statusMutation.mutate({ id, status: "confirmed" });
   }
 
   function handleDecline(id: string) {
-    decline(id);
-    toast("Demande déclinée");
+    statusMutation.mutate({ id, status: "cancelled" });
   }
 
   function toggleVisibility() {
@@ -77,6 +148,32 @@ function ProDashboard() {
     toast(next ? "Vous êtes visible · disponible maintenant" : "Visibilité désactivée");
   }
 
+  if (profileLoading) {
+    return (
+      <AppLayout>
+        <div className="p-8 text-sm text-muted-foreground">Chargement de votre espace pro...</div>
+      </AppLayout>
+    );
+  }
+
+  if (profileError || !pro) {
+    return (
+      <AppLayout>
+        <div className="p-8 max-w-3xl">
+          <h1 className="text-3xl font-semibold">Espace pro</h1>
+          <p className="text-muted-foreground mt-2">
+            {profileError ?? "Ce compte n'est pas encore relié à une fiche professionnelle."}
+          </p>
+          <Link
+            to="/pro/parametres"
+            className="inline-block mt-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-5 py-2.5 text-sm font-semibold"
+          >
+            Compléter mon profil pro
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -84,12 +181,18 @@ function ProDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img src={pro.avatar} alt={pro.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500" />
+            {pro.avatar_url ? (
+              <img src={pro.avatar_url} alt={pro.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500" />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl border-2 border-emerald-500 bg-emerald-500 text-white flex items-center justify-center text-xl font-semibold">
+                {pro.name.charAt(0)}
+              </div>
+            )}
             <div>
               <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Espace pro</div>
-              <h1 className="text-3xl font-semibold">Bonjour {pro.name.split(" ")[0]} 👋</h1>
+              <h1 className="text-3xl font-semibold">Bonjour {pro.name.split(" ")[0]}</h1>
               <div className="text-sm text-muted-foreground mt-0.5">
-                {today.length} rendez-vous aujourd'hui · {dayTotal} € prévus
+                {bookingsLoading ? "Chargement..." : `${todayWithStatus.length} rendez-vous aujourd'hui · ${dayTotal} € prévus`}
               </div>
             </div>
           </div>
@@ -108,10 +211,10 @@ function ProDashboard() {
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-4">
-          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${today.length}`} sub={`${todayWithStatus.filter((a) => a.status === "done").length} terminés`} />
+          <Kpi icon={Calendar} label="RDV aujourd'hui" value={`${todayWithStatus.length}`} sub={`${todayWithStatus.filter((a) => a.status === "done").length} terminés`} />
           <Kpi icon={Wallet} label="Revenu du jour" value={`${todayRevenue} €`} sub={`/ ${dayTotal} € prévus`} accent />
           <Kpi icon={Inbox} label="Demandes en attente" value={`${pending.length}`} sub="à traiter" />
-          <Kpi icon={TrendingUp} label="Cette semaine" value="+18%" sub="vs sem. dernière" />
+          <Kpi icon={TrendingUp} label="Cette semaine" value={`${rows.filter((b) => b.status === "confirmed" || b.status === "completed").length}`} sub="réservations actives" />
         </div>
 
         {/* Grid: demandes + agenda */}
@@ -133,41 +236,47 @@ function ProDashboard() {
               {pending.length === 0 && (
                 <div className="text-sm text-muted-foreground text-center py-8">Aucune demande en attente.</div>
               )}
-              {pending.map((r) => (
+              {pending.map((r) => {
+                const addressText = r.client_addresses?.address ?? r.address_text ?? r.mode;
+                const clientName = r.profiles?.full_name ?? "Client";
+                return (
                 <div key={r.id} className="border border-border rounded-2xl p-4 hover:border-emerald-500/40 transition">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <Zap className="w-4 h-4 text-emerald-500" />
-                        <span className="font-semibold text-sm">{r.serviceName}</span>
-                        <span className="text-xs text-muted-foreground">· {r.clientName}</span>
+                        <span className="font-semibold text-sm">{r.service_name}</span>
+                        <span className="text-xs text-muted-foreground">· {clientName}</span>
                       </div>
                       <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {r.location} · {r.distanceKm} km</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.when}</span>
+                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {addressText}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatBookingDate(r.start_at)}</span>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-semibold">{r.price} €</div>
+                      <div className="font-semibold">{Number(r.price).toFixed(0)} €</div>
                       <div className="text-[10px] text-muted-foreground">budget</div>
                     </div>
                   </div>
                   <div className="flex gap-2 mt-3">
                     <button
+                      disabled={statusMutation.isPending}
                       onClick={() => handleAccept(r.id)}
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-2 text-sm font-semibold flex items-center justify-center gap-1.5"
+                      className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl py-2 text-sm font-semibold flex items-center justify-center gap-1.5"
                     >
                       <Check className="w-4 h-4" /> Accepter
                     </button>
                     <button
+                      disabled={statusMutation.isPending}
                       onClick={() => handleDecline(r.id)}
-                      className="px-4 border border-border rounded-xl text-sm hover:bg-secondary flex items-center gap-1"
+                      className="px-4 border border-border rounded-xl text-sm hover:bg-secondary disabled:opacity-60 flex items-center gap-1"
                     >
                       <X className="w-4 h-4" /> Décliner
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </section>
 
@@ -239,26 +348,38 @@ function ProDashboard() {
               <div className="w-64 h-64 rounded-full border-2 border-emerald-500/60 bg-emerald-500/10" />
             </div>
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <img src={pro.avatar} alt="" className="w-12 h-12 rounded-full border-4 border-emerald-500 object-cover" />
+              {pro.avatar_url ? (
+                <img src={pro.avatar_url} alt="" className="w-12 h-12 rounded-full border-4 border-emerald-500 object-cover" />
+              ) : (
+                <div className="w-12 h-12 rounded-full border-4 border-emerald-500 bg-emerald-500 text-white flex items-center justify-center font-semibold">
+                  {pro.name.charAt(0)}
+                </div>
+              )}
             </div>
             {/* client pins */}
-            {[
-              { x: "40%", y: "35%", label: "Sophie · 09h" },
-              { x: "62%", y: "44%", label: "Anna · 10h30" },
-              { x: "52%", y: "62%", label: "Marion · 14h", active: true },
-              { x: "36%", y: "58%", label: "Camille · 16h" },
-            ].map((p, i) => (
+            {todayBookings.slice(0, 4).map((booking, i) => {
+              const start = new Date(booking.start_at);
+              const clientName = booking.profiles?.full_name?.split(" ")[0] ?? "Client";
+              const pins = [
+                { x: "40%", y: "35%" },
+                { x: "62%", y: "44%" },
+                { x: "52%", y: "62%" },
+                { x: "36%", y: "58%" },
+              ];
+              const p = pins[i] ?? pins[0];
+              return (
               <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: p.x, top: p.y }}>
                 <div className={`px-2 py-1 rounded-full text-[10px] font-semibold shadow-card ${
-                  p.active ? "bg-emerald-500 text-white" : "bg-card border border-border"
+                  booking.status === "confirmed" ? "bg-emerald-500 text-white" : "bg-card border border-border"
                 }`}>
-                  📍 {p.label}
+                  📍 {clientName} · {start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur rounded-xl px-3 py-2 text-xs border border-border shadow-card">
-              <div className="font-semibold flex items-center gap-1"><HomeIcon className="w-3 h-3" /> 4 clients aujourd'hui</div>
-              <div className="text-muted-foreground mt-0.5">Trajet total estimé : 42 min</div>
+              <div className="font-semibold flex items-center gap-1"><HomeIcon className="w-3 h-3" /> {todayBookings.length} clients aujourd'hui</div>
+              <div className="text-muted-foreground mt-0.5">Demandes et RDV issus de Supabase</div>
             </div>
           </div>
         </section>
