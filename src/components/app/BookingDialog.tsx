@@ -53,7 +53,13 @@ import {
 } from "@/components/app/booking-dialog-model";
 import { hashLocation, useBookerSlots } from "@/components/app/booking-hooks";
 import { Row, Stepper } from "@/components/app/booking-ui";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /* -------------------- Booking Dialog (3 steps) -------------------- */
 
@@ -66,9 +72,10 @@ export function BookingDialog({
   state: { pro: Pro; service?: Service; slotIso?: string } | null;
   onClose: () => void;
 }) {
-  const addBooking = useBooker((s) => s.addBooking);
   const navigate = useNavigate();
   const pushNotification = useBooker((s) => s.pushNotification);
+  const createBookingServer = useServerFn(createBookingFn);
+  const queryClient = useQueryClient();
 
   const [stepIdx, setStepIdx] = useState(0);
   const [serviceId, setServiceId] = useState<string | undefined>(undefined);
@@ -85,119 +92,144 @@ export function BookingDialog({
   const [isCreatingAddress, setIsCreatingAddress] = useState(false);
 
   useEffect(() => {
-    if (state) {
-      setStepIdx(0);
-      setServiceId(state.service?.id ?? state.pro.services[0].id);
-      setSlotIso(state.slotIso);
-      const defaultMode: Mode = state.pro.modes.includes("home")
-        ? "home"
-        : state.pro.modes[0];
-      setMode(defaultMode);
-      // Si pas d'adresse principale enregistrée → on bascule direct sur la saisie custom
-      setAddressId(HAS_MAIN_ADDRESS ? "a1" : "custom");
-      setCustomAddress("");
-      setLocalAddresses(HAS_MAIN_ADDRESS ? DEFAULT_ADDRESSES : DEFAULT_ADDRESSES.filter((a) => a.kind !== "home"));
-      setIsCreatingAddress(false);
-      const bizForPro = getBusinessesForPro(state.pro.id);
-      setBusinessId(bizForPro[0]?.id);
-      setCollaboratorId("any");
-      // Pré-rempli depuis le compte client (les champs vides resteront à compléter)
-      setPhone(ACCOUNT_PROFILE.phone);
-      setDigicode(ACCOUNT_PROFILE.digicode);
-      setComments("");
-    }
-  }, [state?.pro.id, state?.service?.id, state?.slotIso]);
+    if (!state) return;
 
-  const sourcePro = state?.pro;
+    setStepIdx(0);
+    setServiceId(state.service?.id ?? state.pro.services[0]?.id);
+    setSlotIso(state.slotIso);
+
+    const defaultMode: Mode = state.pro.modes.includes("home") ? "home" : state.pro.modes[0];
+
+    setMode(defaultMode);
+    setAddressId(HAS_MAIN_ADDRESS ? "a1" : "custom");
+    setCustomAddress("");
+    setLocalAddresses(
+      HAS_MAIN_ADDRESS ? DEFAULT_ADDRESSES : DEFAULT_ADDRESSES.filter((a) => a.kind !== "home"),
+    );
+    setIsCreatingAddress(false);
+
+    const bizForPro = getBusinessesForPro(state.pro.id);
+    setBusinessId(bizForPro[0]?.id);
+    setCollaboratorId("any");
+    setPhone(ACCOUNT_PROFILE.phone);
+    setDigicode(ACCOUNT_PROFILE.digicode);
+    setComments("");
+  }, [state]);
+
+  const sourcePro = state?.pro ?? null;
+
   const proForSlots = useMemo(() => {
     if (mode === "studio" && businessId && collaboratorId !== "any") {
       return getPro(collaboratorId);
     }
+
     return sourcePro ?? PROS[0];
   }, [mode, businessId, collaboratorId, sourcePro]);
+
   const slots = useBookerSlots(proForSlots.id);
 
   const steps = useMemo(() => buildSteps(mode, sourcePro?.modes ?? []), [mode, sourcePro?.modes]);
+
   const currentStep = steps[stepIdx];
   const isLast = stepIdx === steps.length - 1;
 
   if (!state || !sourcePro) return null;
+
   const pro = sourcePro;
   const service = pro.services.find((s) => s.id === serviceId) ?? pro.services[0];
+
+  if (!service) {
+    return null;
+  }
+
   const slot = slots.find((s) => s.iso === slotIso) ?? slots[0];
 
-  const selectedBusiness: BusinessLocation | undefined =
-    businessId ? BUSINESSES.find((b) => b.id === businessId) : undefined;
-  const selectedAddress: ClientAddress | undefined =
-    addressId ? localAddresses.find((a) => a.id === addressId) : undefined;
+  const selectedBusiness: BusinessLocation | undefined = businessId
+    ? BUSINESSES.find((b) => b.id === businessId)
+    : undefined;
+
+  const selectedAddress: ClientAddress | undefined = addressId
+    ? localAddresses.find((a) => a.id === addressId)
+    : undefined;
+
   const finalAddress =
     mode === "home"
-      ? (addressId === "custom" ? customAddress : selectedAddress?.address) ?? ""
+      ? ((addressId === "custom" ? customAddress : selectedAddress?.address) ?? "")
       : "";
 
   const collaboratorPro =
-    mode === "studio" && collaboratorId !== "any"
-      ? getPro(collaboratorId)
-      : undefined;
+    mode === "studio" && collaboratorId !== "any" ? getPro(collaboratorId) : undefined;
 
-  // Distance dérivée de l'adresse sélectionnée — recalculée à chaque changement
   const distanceKm = (() => {
     if (mode !== "home") return selectedBusiness?.distanceKm ?? 0;
-    const addrStr = addressId === "custom" ? customAddress : selectedAddress?.address ?? "";
+
+    const addrStr = addressId === "custom" ? customAddress : (selectedAddress?.address ?? "");
+
     if (!addrStr) return pro.distanceKm;
-    // Offset déterministe basé sur l'adresse : range ~[-0.8, +4.2] km
+
     const h = hashLocation(addrStr);
-    const offset = ((h % 50) / 10) - 0.8;
+    const offset = (h % 50) / 10 - 0.8;
+
     return Math.max(0.4, pro.distanceKm + offset);
   })();
-  const etaMin = Math.max(5, Math.round(distanceKm * 6 + 6));
 
+  const etaMin = Math.max(5, Math.round(distanceKm * 6 + 6));
   const serviceFee = Math.round(service.price * 0.05);
   const total = service.price + serviceFee;
 
-  // Validation per step
   const canContinue = (() => {
     switch (currentStep) {
-      case "service": return !!serviceId;
-      case "mode": return !!mode && pro.modes.includes(mode === "studio" ? "studio" : mode === "video" ? "video" : "home");
-      case "address": return mode !== "home" || (addressId === "custom" ? customAddress.trim().length > 3 : !!addressId);
-      case "business": return !!businessId;
-      case "collaborator": return !!collaboratorId;
-      case "slot": return !!slotIso;
-      case "info": return phone.trim().length >= 6;
-      default: return true;
+      case "service":
+        return !!serviceId;
+      case "mode":
+        return !!mode && pro.modes.includes(mode);
+      case "address":
+        return (
+          mode !== "home" ||
+          (addressId === "custom" ? customAddress.trim().length > 3 : !!addressId)
+        );
+      case "business":
+        return !!businessId;
+      case "collaborator":
+        return !!collaboratorId;
+      case "slot":
+        return !!slotIso;
+      case "info":
+        return phone.trim().length >= 6;
+      default:
+        return true;
     }
   })();
 
-  const createBookingServer = useServerFn(createBookingFn);
-  const queryClient = useQueryClient();
-
   async function confirm() {
     const bookedPro = collaboratorPro ?? pro;
+
     const { data: sessionData } = await supabase.auth.getSession();
+
     if (!sessionData.session) {
       toast.error("Connectez-vous pour réserver", {
         description: "Vous serez redirigée vers la page de connexion.",
       });
+
       navigate({ to: "/auth", search: { redirect: "/" } });
       return;
     }
 
-    // Compute start_at ISO from slot
-    const slotIsoStr = slot?.iso;
-    if (!slotIsoStr) {
+    if (!slot?.iso) {
       toast.error("Créneau invalide");
       return;
     }
-    const startAt = new Date(slotIsoStr).toISOString();
+
+    const startAt = new Date(slot.iso).toISOString();
+
     const addressText =
       mode === "home" ? finalAddress : mode === "studio" ? selectedBusiness?.address : undefined;
 
     try {
       await createBookingServer({
         data: {
-          pro_slug: bookedPro.id, // mock id matches DB slug
-          service_slug: service.id,
+          pro_slug: (bookedPro as any).slug ?? bookedPro.id,
+          service_slug: (service as any).slug ?? service.id,
           address_text: addressText,
           mode,
           start_at: startAt,
@@ -207,14 +239,20 @@ export function BookingDialog({
           comments,
         },
       });
+
       queryClient.invalidateQueries({ queryKey: ["bookings", "me"] });
+
       pushNotification({
-        title: `Réservation confirmée avec ${bookedPro.name.split(" ")[0]}`,
-        body: `${service.name} — ${slot?.label}${mode === "studio" && selectedBusiness ? ` · ${selectedBusiness.name}` : ""}`,
+        title: `Demande envoyée à ${bookedPro.name.split(" ")[0]}`,
+        body: `${service.name} — ${slot?.label}${
+          mode === "studio" && selectedBusiness ? ` · ${selectedBusiness.name}` : ""
+        }`,
       });
-      toast.success("Réservation confirmée !", {
+
+      toast.success("Demande de réservation envoyée !", {
         description: `${bookedPro.name.split(" ")[0]} — ${service.name} · ${slot?.label}`,
       });
+
       onClose();
       navigate({ to: "/reservations" });
     } catch (e) {
@@ -246,11 +284,7 @@ export function BookingDialog({
 
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           {currentStep === "service" && (
-            <StepService
-              services={pro.services}
-              serviceId={serviceId}
-              onSelect={setServiceId}
-            />
+            <StepService services={pro.services} serviceId={serviceId} onSelect={setServiceId} />
           )}
 
           {currentStep === "mode" && (
@@ -281,6 +315,7 @@ export function BookingDialog({
                   address,
                   kind,
                 };
+
                 setLocalAddresses((prev) => [...prev, newAddr]);
                 setAddressId(newAddr.id);
                 setIsCreatingAddress(false);
@@ -317,8 +352,8 @@ export function BookingDialog({
                 mode === "studio" && selectedBusiness
                   ? `Agenda de ${selectedBusiness.name}`
                   : mode === "video"
-                  ? "Créneaux visio disponibles"
-                  : "Prochains créneaux du pro"
+                    ? "Créneaux visio disponibles"
+                    : "Prochains créneaux du pro"
               }
             />
           )}
@@ -358,7 +393,10 @@ export function BookingDialog({
             >
               Retour
             </button>
-          ) : <span />}
+          ) : (
+            <span />
+          )}
+
           {!isLast ? (
             <button
               onClick={() => setStepIdx(stepIdx + 1)}
@@ -384,24 +422,34 @@ export function BookingDialog({
 /* -------------------- Step components -------------------- */
 
 function StepService({
-  services, serviceId, onSelect,
-}: { services: Service[]; serviceId?: string; onSelect: (id: string) => void }) {
+  services,
+  serviceId,
+  onSelect,
+}: {
+  services: Service[];
+  serviceId?: string;
+  onSelect: (id: string) => void;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Choisir la prestation</div>
+
       <div className="space-y-2">
         {services.map((s) => (
           <button
             key={s.id}
             onClick={() => onSelect(s.id)}
             className={`w-full flex justify-between items-center p-3 rounded-2xl border text-left transition ${
-              serviceId === s.id ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
+              serviceId === s.id
+                ? "border-primary bg-accent/40"
+                : "border-border hover:bg-secondary"
             }`}
           >
             <div>
               <div className="font-medium text-sm">{s.name}</div>
               <div className="text-xs text-muted-foreground">{s.duration} min</div>
             </div>
+
             <div className="font-semibold">{s.price} €</div>
           </button>
         ))}
@@ -411,15 +459,23 @@ function StepService({
 }
 
 function StepMode({
-  available, mode, hasEstablishment, onPick,
-}: { available: Mode[]; mode: Mode; hasEstablishment: boolean; onPick: (m: Mode) => void }) {
+  available,
+  mode,
+  hasEstablishment,
+  onPick,
+}: {
+  available: Mode[];
+  mode: Mode;
+  hasEstablishment: boolean;
+  onPick: (m: Mode) => void;
+}) {
   const allOptions: { m: Mode; emoji: string; label: string; sub: string }[] = [
     { m: "home", emoji: "🏠", label: "À domicile", sub: "Le pro vient chez vous" },
     { m: "studio", emoji: "🏢", label: "En établissement", sub: "Vous vous déplacez" },
     { m: "video", emoji: "💻", label: "En visio", sub: "Sans déplacement" },
   ];
   const options = allOptions.filter((o) =>
-    o.m === "studio" ? hasEstablishment && available.includes("studio") : available.includes(o.m)
+    o.m === "studio" ? hasEstablishment && available.includes("studio") : available.includes(o.m),
   );
   return (
     <div>
@@ -573,16 +629,17 @@ function StepAddress({
     return tier === "high"
       ? "Adresse exacte"
       : tier === "medium"
-      ? "Rue / quartier"
-      : tier === "low"
-      ? "Code postal / ville"
-      : "Zone large";
+        ? "Rue / quartier"
+        : tier === "low"
+          ? "Code postal / ville"
+          : "Zone large";
   }
 
   function useCurrentLocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       toast.error("Géolocalisation indisponible", {
-        description: "Votre navigateur ne supporte pas la localisation. Adresse par défaut utilisée.",
+        description:
+          "Votre navigateur ne supporte pas la localisation. Adresse par défaut utilisée.",
       });
       setNewAddress(CURRENT_LOCATION_LABEL);
       return;
@@ -634,11 +691,13 @@ function StepAddress({
         switch (err.code) {
           case err.PERMISSION_DENIED:
             title = "Accès à la position refusé";
-            description = "Autorisez la géolocalisation dans votre navigateur, ou saisissez l'adresse à la main.";
+            description =
+              "Autorisez la géolocalisation dans votre navigateur, ou saisissez l'adresse à la main.";
             break;
           case err.POSITION_UNAVAILABLE:
             title = "Position indisponible";
-            description = "Impossible d'obtenir votre position actuelle. Adresse de référence proposée.";
+            description =
+              "Impossible d'obtenir votre position actuelle. Adresse de référence proposée.";
             setNewAddress(CURRENT_LOCATION_LABEL);
             break;
           case err.TIMEOUT:
@@ -686,7 +745,11 @@ function StepAddress({
             disabled={locating}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition disabled:opacity-60"
           >
-            {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+            {locating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <MapPin className="w-3.5 h-3.5" />
+            )}
             {locating ? "Localisation…" : "📍 Ma position actuelle"}
           </button>
           {favoriteAddress && (
@@ -729,7 +792,9 @@ function StepAddress({
 
         <div className="space-y-3 bg-secondary/30 p-4 rounded-2xl border border-border">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">Type d'adresse</label>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">
+              Type d'adresse
+            </label>
             <div className="grid grid-cols-4 gap-2">
               {(["home", "office", "hotel", "custom"] as const).map((k) => (
                 <button
@@ -737,7 +802,9 @@ function StepAddress({
                   type="button"
                   onClick={() => setNewKind(k)}
                   className={`py-2 px-1 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition ${
-                    newKind === k ? "border-primary bg-accent/40 text-primary animate-scale-up" : "border-border hover:bg-secondary bg-card"
+                    newKind === k
+                      ? "border-primary bg-accent/40 text-primary animate-scale-up"
+                      : "border-border hover:bg-secondary bg-card"
                   }`}
                 >
                   {k === "home" ? (
@@ -749,7 +816,15 @@ function StepAddress({
                   ) : (
                     <MapPin className="w-3.5 h-3.5" />
                   )}
-                  <span>{k === "home" ? "Domicile" : k === "office" ? "Bureau" : k === "hotel" ? "Hôtel" : "Autre"}</span>
+                  <span>
+                    {k === "home"
+                      ? "Domicile"
+                      : k === "office"
+                        ? "Bureau"
+                        : k === "hotel"
+                          ? "Hôtel"
+                          : "Autre"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -774,7 +849,9 @@ function StepAddress({
           </div>
 
           <div className="relative">
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">Adresse complète</label>
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">
+              Adresse complète
+            </label>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
@@ -819,8 +896,8 @@ function StepAddress({
                   geoInfo.tier === "high"
                     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                     : geoInfo.tier === "medium"
-                    ? "bg-amber-50 border-amber-200 text-amber-800"
-                    : "bg-orange-50 border-orange-200 text-orange-800"
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-orange-50 border-orange-200 text-orange-800"
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -831,10 +908,10 @@ function StepAddress({
                       {geoInfo.tier === "high"
                         ? "Fiable"
                         : geoInfo.tier === "medium"
-                        ? "Moyenne"
-                        : geoInfo.tier === "low"
-                        ? "Approximative"
-                        : "Très large"}
+                          ? "Moyenne"
+                          : geoInfo.tier === "low"
+                            ? "Approximative"
+                            : "Très large"}
                     </span>
                   </div>
                   <div className="opacity-80 mt-0.5">
@@ -877,7 +954,8 @@ function StepAddress({
         <div className="mb-3 rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
-            <strong>Aucune adresse principale enregistrée.</strong> Ajoutez-en une via le bouton ci-dessous — elle sera mémorisée pour vos prochaines réservations.
+            <strong>Aucune adresse principale enregistrée.</strong> Ajoutez-en une via le bouton
+            ci-dessous — elle sera mémorisée pour vos prochaines réservations.
           </span>
         </div>
       )}
@@ -914,53 +992,66 @@ function StepAddress({
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold">Ajouter une nouvelle adresse</div>
-            <div className="text-[11px] text-muted-foreground">Géolocalisation, favoris et autocomplétion</div>
+            <div className="text-[11px] text-muted-foreground">
+              Géolocalisation, favoris et autocomplétion
+            </div>
           </div>
           <ArrowRight className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
-      {addressId && addressId !== "custom" && (() => {
-        const minRange = Math.max(5, Math.round(etaMin - Math.max(2, etaMin * 0.15)));
-        const maxRange = Math.round(etaMin + Math.max(3, etaMin * 0.25));
-        return (
-          <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-emerald-800 dark:text-emerald-300 space-y-3 animate-fade-in">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">
-                  Temps d'arrivée estimé
+      {addressId &&
+        addressId !== "custom" &&
+        (() => {
+          const minRange = Math.max(5, Math.round(etaMin - Math.max(2, etaMin * 0.15)));
+          const maxRange = Math.round(etaMin + Math.max(3, etaMin * 0.25));
+          return (
+            <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-emerald-800 dark:text-emerald-300 space-y-3 animate-fade-in">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">
+                    Temps d'arrivée estimé
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold tracking-tight">{etaMin} min</span>
+                    <span className="text-xs opacity-80">(± {distanceKm.toFixed(1)} km)</span>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-bold tracking-tight">{etaMin} min</span>
-                  <span className="text-xs opacity-80">(± {distanceKm.toFixed(1)} km)</span>
-                </div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Zone couverte
+                </span>
               </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                <ShieldCheck className="w-3.5 h-3.5" /> Zone couverte
-              </span>
-            </div>
 
-            <div className="h-[2px] bg-emerald-500/10 rounded-full overflow-hidden relative">
-              <div className="absolute inset-y-0 left-0 bg-emerald-500 w-[65%] rounded-full animate-pulse" />
-            </div>
+              <div className="h-[2px] bg-emerald-500/10 rounded-full overflow-hidden relative">
+                <div className="absolute inset-y-0 left-0 bg-emerald-500 w-[65%] rounded-full animate-pulse" />
+              </div>
 
-            <div className="flex items-center justify-between text-xs pt-0.5">
-              <span className="flex items-center gap-1.5 opacity-90">
-                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Plage estimée : <strong className="font-semibold">{minRange} à {maxRange} min</strong>
-              </span>
-              <span className="opacity-75 text-[11px]">Trajet optimal</span>
+              <div className="flex items-center justify-between text-xs pt-0.5">
+                <span className="flex items-center gap-1.5 opacity-90">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Plage estimée :{" "}
+                  <strong className="font-semibold">
+                    {minRange} à {maxRange} min
+                  </strong>
+                </span>
+                <span className="opacity-75 text-[11px]">Trajet optimal</span>
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 }
 
 function StepBusiness({
-  list, selectedId, onSelect,
-}: { list: BusinessLocation[]; selectedId?: string; onSelect: (id: string) => void }) {
+  list,
+  selectedId,
+  onSelect,
+}: {
+  list: BusinessLocation[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Choisir l'établissement</div>
@@ -975,14 +1066,18 @@ function StepBusiness({
                 active ? "border-primary bg-accent/40" : "border-border hover:bg-secondary"
               }`}
             >
-              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${b.gradient} flex items-center justify-center text-2xl shrink-0`}>
+              <div
+                className={`w-14 h-14 rounded-xl bg-gradient-to-br ${b.gradient} flex items-center justify-center text-2xl shrink-0`}
+              >
                 {b.emoji}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{b.name}</div>
                 <div className="text-xs text-muted-foreground truncate">{b.address}</div>
                 <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {b.distanceKm} km</span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> {b.distanceKm} km
+                  </span>
                   <span className="flex items-center gap-1 text-emerald-600 font-semibold">
                     <Clock className="w-3 h-3" /> {b.nextSlot}
                   </span>
@@ -998,8 +1093,14 @@ function StepBusiness({
 }
 
 function StepCollaborator({
-  pros, selectedId, onSelect,
-}: { pros: Pro[]; selectedId: string | "any"; onSelect: (id: string | "any") => void }) {
+  pros,
+  selectedId,
+  onSelect,
+}: {
+  pros: Pro[];
+  selectedId: string | "any";
+  onSelect: (id: string | "any") => void;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold mb-2">Choisir un collaborateur</div>
@@ -1034,7 +1135,9 @@ function StepCollaborator({
                 <div className="text-sm font-semibold truncate">{p.name}</div>
                 <div className="text-xs text-muted-foreground truncate">{p.specialty}</div>
                 <div className="flex items-center gap-3 mt-0.5 text-[11px]">
-                  <span className="flex items-center gap-1"><Star className="w-3 h-3 fill-warning text-warning" /> {p.rating.toFixed(1)}</span>
+                  <span className="flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-warning text-warning" /> {p.rating.toFixed(1)}
+                  </span>
                   <span className="text-emerald-600 font-semibold flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {p.availability === "now" ? "Maintenant" : p.availability}
@@ -1051,8 +1154,16 @@ function StepCollaborator({
 }
 
 function StepSlot({
-  slots, slotIso, onSelect, hint,
-}: { slots: { iso: string; label: string }[]; slotIso?: string; onSelect: (iso: string) => void; hint: string }) {
+  slots,
+  slotIso,
+  onSelect,
+  hint,
+}: {
+  slots: { iso: string; label: string }[];
+  slotIso?: string;
+  onSelect: (iso: string) => void;
+  hint: string;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold mb-1">Choisir un créneau</div>
@@ -1073,7 +1184,14 @@ function StepSlot({
                   : "border-border hover:bg-secondary"
               }`}
             >
-              {now ? <span className="inline-flex items-center gap-1"><Zap className="w-3 h-3 fill-current" />Maintenant</span> : s.label}
+              {now ? (
+                <span className="inline-flex items-center gap-1">
+                  <Zap className="w-3 h-3 fill-current" />
+                  Maintenant
+                </span>
+              ) : (
+                s.label
+              )}
             </button>
           );
         })}
@@ -1083,10 +1201,21 @@ function StepSlot({
 }
 
 function StepInfo({
-  mode, phone, digicode, comments, onPhone, onDigicode, onComments,
+  mode,
+  phone,
+  digicode,
+  comments,
+  onPhone,
+  onDigicode,
+  onComments,
 }: {
-  mode: Mode; phone: string; digicode: string; comments: string;
-  onPhone: (v: string) => void; onDigicode: (v: string) => void; onComments: (v: string) => void;
+  mode: Mode;
+  phone: string;
+  digicode: string;
+  comments: string;
+  onPhone: (v: string) => void;
+  onDigicode: (v: string) => void;
+  onComments: (v: string) => void;
 }) {
   const digicodeRef = useRef<HTMLInputElement>(null);
   const phoneMissing = !ACCOUNT_PROFILE.phone;
@@ -1132,7 +1261,12 @@ function StepInfo({
       {mode === "home" && (
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mb-1">
-            <Lock className="w-3.5 h-3.5" /> Digicode {digicodeMissing && !digicode ? <span className="text-amber-700">· à renseigner</span> : "(optionnel)"}
+            <Lock className="w-3.5 h-3.5" /> Digicode{" "}
+            {digicodeMissing && !digicode ? (
+              <span className="text-amber-700">· à renseigner</span>
+            ) : (
+              "(optionnel)"
+            )}
           </span>
           <input
             ref={digicodeRef}
@@ -1140,7 +1274,9 @@ function StepInfo({
             onChange={(e) => onDigicode(e.target.value)}
             placeholder="Ex : 1234A · 3e étage gauche"
             className={`w-full h-11 px-4 rounded-xl border bg-secondary text-sm outline-none focus:border-primary ${
-              digicodeMissing && !digicode ? "border-amber-300 ring-2 ring-amber-100" : "border-border"
+              digicodeMissing && !digicode
+                ? "border-amber-300 ring-2 ring-amber-100"
+                : "border-border"
             }`}
           />
         </label>
@@ -1162,11 +1298,25 @@ function StepInfo({
 }
 
 function StepPay({
-  mode, pro, service, slotLabel, address, business, etaMin, serviceFee, total,
+  mode,
+  pro,
+  service,
+  slotLabel,
+  address,
+  business,
+  etaMin,
+  serviceFee,
+  total,
 }: {
-  mode: Mode; pro: Pro; service: Service; slotLabel: string;
-  address?: string; business?: BusinessLocation; etaMin?: number;
-  serviceFee: number; total: number;
+  mode: Mode;
+  pro: Pro;
+  service: Service;
+  slotLabel: string;
+  address?: string;
+  business?: BusinessLocation;
+  etaMin?: number;
+  serviceFee: number;
+  total: number;
 }) {
   return (
     <div>
@@ -1178,7 +1328,9 @@ function StepPay({
         <Row label="Prestation" value={`${service.name} (${service.duration} min)`} />
         {mode === "home" && address && <Row label="Adresse" value={address} />}
         <Row label="Créneau" value={slotLabel} />
-        {mode === "home" && etaMin !== undefined && <Row label="Temps d'arrivée" value={`~${etaMin} min`} />}
+        {mode === "home" && etaMin !== undefined && (
+          <Row label="Temps d'arrivée" value={`~${etaMin} min`} />
+        )}
         <Row label="Mode" value={modeLabel(mode)} />
         <Row label="Prix prestation" value={`${service.price} €`} />
         <Row label="Frais de service" value={`${serviceFee} €`} />
