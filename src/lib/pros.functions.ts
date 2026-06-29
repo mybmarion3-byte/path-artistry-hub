@@ -30,7 +30,8 @@ export const listPros = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = publicClient();
   const { data, error } = await supabase
     .from("pros")
-    .select("*")
+    .select("*, pro_services(*)")
+    .not("user_id", "is", null)
     .order("rating", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
