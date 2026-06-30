@@ -33,6 +33,7 @@ function fmtHour(h: number) {
 
 type BookingRow = {
   id: string;
+  client_id: string;
   service_name: string;
   address_text: string | null;
   mode: string;
@@ -137,6 +138,14 @@ function ProDashboard() {
     }>;
 
   const pending = rows.filter((booking) => booking.status === "pending");
+  const activeClientCount = new Set(
+    rows
+      .filter((booking) => booking.status === "pending" || booking.status === "confirmed")
+      .map((booking) => booking.client_id)
+      .filter(Boolean),
+  ).size;
+  const primaryLocation = locations.find((location) => location.is_primary) ?? locations[0];
+  const radiusLabel = primaryLocation ? `${primaryLocation.travel_radius_km} km` : "À définir";
   const todayRevenue = todayWithStatus.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
   const dayTotal = todayWithStatus.reduce((s, a) => s + a.price, 0);
   const publicProfileReady = Boolean(
@@ -430,8 +439,8 @@ function ProDashboard() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Stat label="Rayon" value="5 km" />
-              <Stat label="Clients actifs" value="42" />
+              <Stat label="Rayon" value={radiusLabel} />
+              <Stat label="Clients actifs" value={String(activeClientCount)} />
               <Stat label="Note moy." value={pro.rating.toFixed(1)} icon={<Star className="w-3 h-3 fill-warning text-warning" />} />
             </div>
           </div>
