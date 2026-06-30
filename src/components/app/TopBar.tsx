@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useBooker, getPro, type When } from "@/lib/booker-store";
 import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
+import { useProLocations } from "@/hooks/use-pro-locations";
 import { supabase } from "@/integrations/supabase/client";
 import { listProBookings } from "@/lib/bookings.functions";
 import userMarion from "@/assets/user-marion.jpg";
@@ -20,6 +21,8 @@ export function TopBar() {
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
   const fetchProBookings = useServerFn(listProBookings);
+  const { pro } = useCurrentUserProfile();
+  const { locations } = useProLocations(pro?.id);
 
   const searchQuery = useBooker((s) => s.searchQuery);
   const setSearchQuery = useBooker((s) => s.setSearchQuery);
@@ -44,6 +47,10 @@ export function TopBar() {
   const inboxCount = (proBookings as Array<{ status: string }>).filter(
     (booking) => booking.status === "pending",
   ).length;
+  const primaryLocation = locations.find((item) => item.is_primary) ?? locations[0];
+  const zoneLabel = primaryLocation
+    ? `${primaryLocation.city || primaryLocation.name} · ${primaryLocation.travel_radius_km} km`
+    : "Zone à définir";
 
   const whenLabel =
     when.kind === "now" ? "Maintenant" : when.kind === "today" ? "Aujourd'hui" : when.iso;
@@ -132,7 +139,7 @@ export function TopBar() {
             <div className="h-12 px-4 rounded-full border border-emerald-200 bg-white/70 flex items-center gap-2 text-sm">
               <MapPin className="w-4 h-4 text-emerald-600" />
               <span className="text-muted-foreground">Zone :</span>
-              <span className="font-medium">Paris 17e · 5 km</span>
+              <span className="font-medium">{zoneLabel}</span>
             </div>
             <Link
               to="/pro/demandes"

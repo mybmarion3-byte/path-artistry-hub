@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 
 import { useBooker } from "@/lib/booker-store";
+import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
+import { useProLocations } from "@/hooks/use-pro-locations";
 import { listProBookings } from "@/lib/bookings.functions";
 import {
   Tooltip,
@@ -108,6 +110,8 @@ export function Sidebar({
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
   const fetchProBookings = useServerFn(listProBookings);
+  const { pro } = useCurrentUserProfile();
+  const { locations } = useProLocations(pro?.id);
 
   const isClient = role === "client";
   const { data: proBookings = [] } = useQuery({
@@ -119,6 +123,10 @@ export function Sidebar({
   const inboxCount = (proBookings as Array<{ status: string }>).filter(
     (booking) => booking.status === "pending",
   ).length;
+  const primaryLocation = locations.find((item) => item.is_primary) ?? locations[0];
+  const zoneSummary = primaryLocation
+    ? `${primaryLocation.city || primaryLocation.name} · rayon ${primaryLocation.travel_radius_km} km`
+    : "Zone à définir";
   const nav = isClient ? clientNav : proNav;
   const showLabels = !collapsed || isHovered;
 
@@ -352,7 +360,7 @@ export function Sidebar({
                   d'intervention
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
-                  Paris 17e · rayon 5 km · 12 demandes cette semaine.
+                  {zoneSummary} · {inboxCount} demande{inboxCount > 1 ? "s" : ""} en attente.
                 </p>
                 <Link
                   to="/pro"
