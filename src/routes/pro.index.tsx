@@ -2,6 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
 import { useBooker } from "@/lib/booker-store";
 import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
+import { useProActivityBlocks } from "@/hooks/use-pro-activity-blocks";
+import { useProLocations } from "@/hooks/use-pro-locations";
+import { useProServices } from "@/hooks/use-pro-services";
 import { listProBookings, updateProBookingStatus } from "@/lib/bookings.functions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -70,6 +73,9 @@ function ProDashboard() {
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
   const { pro, loading: profileLoading, error: profileError } = useCurrentUserProfile();
+  const { services, loading: servicesLoading } = useProServices(pro?.id);
+  const { locations, loading: locationsLoading } = useProLocations(pro?.id);
+  const { blocks, loading: blocksLoading } = useProActivityBlocks(pro?.id);
   const fetchBookings = useServerFn(listProBookings);
   const updateStatus = useServerFn(updateProBookingStatus);
   const queryClient = useQueryClient();
@@ -133,6 +139,48 @@ function ProDashboard() {
   const pending = rows.filter((booking) => booking.status === "pending");
   const todayRevenue = todayWithStatus.filter((a) => a.status === "done").reduce((s, a) => s + a.price, 0);
   const dayTotal = todayWithStatus.reduce((s, a) => s + a.price, 0);
+  const publicProfileReady = Boolean(
+    pro?.name?.trim() &&
+    pro?.job?.trim() &&
+    pro?.category?.trim() &&
+    pro?.specialty?.trim() &&
+    pro?.bio?.trim() &&
+    Number(pro?.starting_price ?? 0) > 0 &&
+    (pro?.modes?.length ?? 0) > 0,
+  );
+  const onboardingLoading = servicesLoading || locationsLoading || blocksLoading;
+  const onboardingSteps = [
+    {
+      label: "Profil public",
+      desc: "Nom, métier, catégorie, spécialité, bio, prix et modes.",
+      done: publicProfileReady,
+      to: "/pro/parametres",
+      action: publicProfileReady ? "Vérifier" : "Compléter",
+    },
+    {
+      label: "Prestations",
+      desc: "Au moins une prestation active avec durée et prix.",
+      done: services.length > 0,
+      to: "/pro/prestations",
+      action: services.length > 0 ? "Gérer" : "Ajouter",
+    },
+    {
+      label: "Lieux",
+      desc: "Adresse, zone ou lieu de départ pour les rendez-vous.",
+      done: locations.length > 0,
+      to: "/pro/disponibilites",
+      action: locations.length > 0 ? "Vérifier" : "Renseigner",
+    },
+    {
+      label: "Disponibilités",
+      desc: "Créneaux actifs pour recevoir des demandes cohérentes.",
+      done: blocks.length > 0,
+      to: "/pro/disponibilites",
+      action: blocks.length > 0 ? "Ajuster" : "Planifier",
+    },
+  ] as const;
+  const onboardingDone = onboardingSteps.filter((step) => step.done).length;
+  const onboardingCompletion = Math.round((onboardingDone / onboardingSteps.length) * 100);
 
   function handleAccept(id: string) {
     statusMutation.mutate({ id, status: "confirmed" });
@@ -208,6 +256,53 @@ function ProDashboard() {
             {proVisible ? "Visible · Disponible maintenant" : "Activer ma visibilité"}
           </button>
         </div>
+
+        <section className="bg-card border border-border rounded-3xl p-6 shadow-soft">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Prêt à recevoir des clients</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Booker utilise ces informations pour afficher votre profil, proposer les bons créneaux et éviter les réservations incohérentes.
+              </p>
+            </div>
+            <div className="min-w-40">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span>{onboardingLoading ? "Vérification..." : `${onboardingDone}/${onboardingSteps.length} étapes`}</span>
+                <span className="text-emerald-700">{onboardingCompletion}%</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${onboardingCompletion}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
+            {onboardingSteps.map((step) => (
+              <Link
+                key={step.label}
+                to={step.to}
+                className={`rounded-2xl border p-4 transition hover:border-emerald-500/50 ${
+                  step.done ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-background"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{step.label}</div>
+                    <p className="text-xs text-muted-foreground mt-1">{step.desc}</p>
+                  </div>
+                  <span className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center ${
+                    step.done ? "bg-emerald-500 text-white" : "bg-secondary text-muted-foreground"
+                  }`}>
+                    <Check className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="mt-4 text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                  {step.action} <ArrowRight className="w-3 h-3" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-4">
