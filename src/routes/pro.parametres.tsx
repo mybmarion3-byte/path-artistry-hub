@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
 import { CATEGORIES, type Mode } from "@/lib/booker-store";
 import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
@@ -76,6 +76,19 @@ function Page() {
     const checks = [name, job, category, specialty, bio, startingPrice > 0, modes.length > 0];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [bio, category, job, modes.length, name, specialty, startingPrice]);
+  const publicChecklist = useMemo(
+    () => [
+      { label: "Nom affiché", done: Boolean(name.trim()) },
+      { label: "Métier", done: Boolean(job.trim()) },
+      { label: "Catégorie", done: Boolean(category) },
+      { label: "Spécialité", done: Boolean(specialty.trim()) },
+      { label: "Bio courte", done: Boolean(bio.trim()) },
+      { label: "Prix de départ", done: startingPrice > 0 },
+      { label: "Mode de prestation", done: modes.length > 0 },
+    ],
+    [bio, category, job, modes.length, name, specialty, startingPrice],
+  );
+  const missingPublicItems = publicChecklist.filter((item) => !item.done);
 
   function toggleMode(m: Mode) {
     setModes((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
@@ -206,6 +219,59 @@ function Page() {
           </section>
         )}
 
+        <section className="bg-card border border-border rounded-3xl p-6 shadow-soft">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Informations nécessaires pour être trouvé</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ces champs alimentent la recherche client, les cartes professionnelles et le tunnel de réservation.
+              </p>
+            </div>
+            <div className="min-w-36">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span>Profil public</span>
+                <span className="text-emerald-700">{completion}%</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${completion}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-5">
+            {publicChecklist.map((item) => (
+              <div
+                key={item.label}
+                className={`rounded-xl border px-3 py-2 text-sm flex items-center gap-2 ${
+                  item.done ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-background"
+                }`}
+              >
+                <span className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center ${
+                  item.done ? "bg-emerald-500 text-white" : "bg-secondary text-muted-foreground"
+                }`}>
+                  <Check className="w-3 h-3" />
+                </span>
+                {item.label}
+              </div>
+            ))}
+          </div>
+
+          {missingPublicItems.length > 0 ? (
+            <p className="text-xs text-muted-foreground mt-4">
+              À compléter maintenant : {missingPublicItems.map((item) => item.label.toLowerCase()).join(", ")}.
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <p className="text-sm text-emerald-800">
+                Votre profil public est prêt. Ajoutez maintenant vos prestations, vos lieux et vos disponibilités.
+              </p>
+              <Link to="/pro/prestations" className="text-sm font-semibold text-emerald-700 hover:underline">
+                Gérer mes prestations
+              </Link>
+            </div>
+          )}
+        </section>
+
         {/* Profil public */}
         <Section icon={<Shield className="w-5 h-5 text-emerald-600" />} title="Profil public" desc="Ce que vos clients voient avant de réserver.">
           <div className="flex gap-4">
@@ -243,15 +309,6 @@ function Page() {
               <Field label="Bio">
                 <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
               </Field>
-            </div>
-          </div>
-          <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold">Profil complété</span>
-              <span className="font-semibold text-emerald-700">{completion}%</span>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
-              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${completion}%` }} />
             </div>
           </div>
         </Section>
