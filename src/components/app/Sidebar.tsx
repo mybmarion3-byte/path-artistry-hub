@@ -333,17 +333,17 @@ export function Sidebar({
               <>
                 <div className="rounded-2xl p-4 bg-gradient-soft border border-accent">
                   <div className="flex items-center gap-1.5 text-sm font-semibold">
-                    Booker AI <Sparkles className="w-4 h-4 text-primary" />
+                    Assistant Booker <Sparkles className="w-4 h-4 text-primary" />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
-                    Votre assistant personnel pour trouver le pro parfait.
+                    Retrouvez vos recherches, réservations et échanges au même endroit.
                   </p>
                 </div>
 
                 <div className="rounded-2xl p-4 border border-emerald-500/30 bg-emerald-500/5">
                   <div className="text-sm font-semibold">Devenez pro</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    +300% de réservations en moyenne
+                    Créez votre fiche professionnelle et renseignez vos disponibilités.
                   </p>
                   <button
                     onClick={() => switchTo("pro")}
