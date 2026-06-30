@@ -1,9 +1,12 @@
 import { Bell, Search, MapPin, ChevronDown, Clock, Power, Inbox, LogOut, LogIn } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useBooker, getPro, type When } from "@/lib/booker-store";
 import { useCurrentUserProfile } from "@/hooks/use-current-user-profile";
 import { supabase } from "@/integrations/supabase/client";
+import { listProBookings } from "@/lib/bookings.functions";
 import userMarion from "@/assets/user-marion.jpg";
 
 const WHEN_OPTIONS: { label: string; value: When }[] = [
@@ -16,7 +19,7 @@ export function TopBar() {
   const proIdentityId = useBooker((s) => s.proIdentityId);
   const proVisible = useBooker((s) => s.proVisible);
   const setProVisible = useBooker((s) => s.setProVisible);
-  const inboxCount = useBooker((s) => s.proInbox.filter((r) => r.status === "pending").length);
+  const fetchProBookings = useServerFn(listProBookings);
 
   const searchQuery = useBooker((s) => s.searchQuery);
   const setSearchQuery = useBooker((s) => s.setSearchQuery);
@@ -33,6 +36,14 @@ export function TopBar() {
 
   const isClient = role === "client";
   const proIdentity = getPro(proIdentityId);
+  const { data: proBookings = [] } = useQuery({
+    queryKey: ["bookings", "pro", "topbar"],
+    queryFn: () => fetchProBookings(),
+    enabled: !isClient,
+  });
+  const inboxCount = (proBookings as Array<{ status: string }>).filter(
+    (booking) => booking.status === "pending",
+  ).length;
 
   const whenLabel =
     when.kind === "now" ? "Maintenant" : when.kind === "today" ? "Aujourd'hui" : when.iso;
@@ -181,7 +192,7 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
   async function signOut() {
     await supabase.auth.signOut();
     setOpen(false);
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", search: { redirect: "/" } });
   }
 
   if (loading) {
@@ -192,6 +203,7 @@ function UserMenu({ role, proIdentity }: { role: string; proIdentity: ReturnType
     return (
       <Link
         to="/auth"
+        search={{ redirect: "/" }}
         className="flex items-center gap-2 px-4 h-12 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold shadow-glow hover:opacity-90 transition"
       >
         <LogIn className="w-4 h-4" />

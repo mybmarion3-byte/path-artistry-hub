@@ -65,6 +65,7 @@ function Page() {
               const proName = b.pros?.name ?? "Pro";
               const proJob = b.pros?.job ?? "";
               const proAvatar = b.pros?.avatar_url;
+              const addressText = b.client_addresses?.address ?? b.address_text;
               const upcoming = b.status === "pending" || b.status === "confirmed";
               return (
                 <div key={b.id} className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4 shadow-soft">
@@ -81,8 +82,8 @@ function Page() {
                     <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {date}</span>
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {time}</span>
-                      {b.address_text && (
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {b.address_text}</span>
+                      {addressText && (
+                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {addressText}</span>
                       )}
                     </div>
                   </div>

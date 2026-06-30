@@ -33,6 +33,15 @@ function slugify(value: string, fallback: string) {
   return slug || fallback;
 }
 
+function getErrorMessage(cause: unknown, fallback: string) {
+  if (cause instanceof Error && cause.message) return cause.message;
+  if (cause && typeof cause === "object" && "message" in cause) {
+    const message = (cause as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 function Page() {
   const { user, profile, role, pro, loading, error } = useCurrentUserProfile();
   const [name, setName] = useState("");
@@ -86,7 +95,7 @@ function Page() {
       if (reload) window.location.reload();
       return true;
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Impossible d'activer l'espace professionnel");
+      toast.error(getErrorMessage(cause, "Impossible d'activer l'espace professionnel"));
       return false;
     } finally {
       setActivatingPro(false);
@@ -143,7 +152,7 @@ function Page() {
 
       toast.success("Profil pro enregistré · vos informations publiques sont à jour");
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Impossible d'enregistrer le profil pro");
+      toast.error(getErrorMessage(cause, "Impossible d'enregistrer le profil pro"));
     } finally {
       setSaving(false);
     }
@@ -184,7 +193,9 @@ function Page() {
               </div>
               <button
                 type="button"
-                onClick={activateProAccount}
+                onClick={() => {
+                  void activateProAccount();
+                }}
                 disabled={activatingPro}
                 className="shrink-0 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl px-5 py-3 text-sm font-semibold flex items-center justify-center gap-2"
               >

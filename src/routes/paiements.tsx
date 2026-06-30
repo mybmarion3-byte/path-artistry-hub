@@ -1,7 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app/AppLayout";
-import { useBooker, getPro } from "@/lib/booker-store";
+import { listMyBookings } from "@/lib/bookings.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { CreditCard, Plus } from "lucide-react";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/paiements")({
   head: () => ({ meta: [{ title: "Paiements — Booker NoW" }] }),
@@ -9,8 +13,21 @@ export const Route = createFileRoute("/paiements")({
 });
 
 function Page() {
-  const bookings = useBooker((s) => s.bookings);
-  const total = bookings.filter((b) => b.status !== "cancelled").reduce((sum, b) => sum + b.price, 0);
+  const navigate = useNavigate();
+  const fetchBookings = useServerFn(listMyBookings);
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["bookings", "me", "payments"],
+    queryFn: () => fetchBookings(),
+  });
+  const rows = bookings as any[];
+  const paidRows = rows.filter((b) => b.status !== "cancelled");
+  const total = paidRows.reduce((sum, b) => sum + Number(b.price), 0);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) navigate({ to: "/auth", search: { redirect: "/paiements" } });
+    });
+  }, [navigate]);
 
   return (
     <AppLayout>
@@ -20,7 +37,7 @@ function Page() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <Stat label="Dépensé ce mois" value={`${total} €`} />
-          <Stat label="Transactions" value={String(bookings.length)} />
+          <Stat label="Transactions" value={String(rows.length)} />
           <Stat label="Économies fidélité" value="12 €" />
         </div>
 
@@ -35,20 +52,32 @@ function Page() {
 
         <h2 className="text-lg font-semibold mt-10">Historique</h2>
         <div className="mt-4 bg-card border border-border rounded-2xl divide-y divide-border">
-          {bookings.length === 0 ? (
+          {isLoading ? (
+            <div className="p-6 text-sm text-muted-foreground text-center">Chargement...</div>
+          ) : rows.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground text-center">Aucune transaction.</div>
           ) : (
-            bookings.map((b) => {
-              const p = getPro(b.proId);
+            rows.map((b) => {
+              const p = b.pros;
+              const start = new Date(b.start_at);
               return (
                 <div key={b.id} className="p-4 flex items-center gap-3">
-                  <img src={p.avatar} className="w-10 h-10 rounded-full object-cover" alt="" />
+                  {p?.avatar_url ? (
+                    <img src={p.avatar_url} className="w-10 h-10 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-primary text-white flex items-center justify-center text-sm font-semibold">
+                      {(p?.name ?? "P").charAt(0)}
+                    </div>
+                  )}
                   <div className="flex-1">
-                    <div className="text-sm font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">{b.date} • {b.time}</div>
+                    <div className="text-sm font-medium">{p?.name ?? "Pro"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {start.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })} •{" "}
+                      {start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
                   </div>
                   <div className={`font-semibold ${b.status === "cancelled" ? "line-through text-muted-foreground" : ""}`}>
-                    {b.price} €
+                    {Number(b.price).toFixed(0)} €
                   </div>
                 </div>
               );
