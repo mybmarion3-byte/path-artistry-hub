@@ -1,4 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   Home,
@@ -23,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { useBooker } from "@/lib/booker-store";
+import { listProBookings } from "@/lib/bookings.functions";
 import {
   Tooltip,
   TooltipContent,
@@ -104,18 +107,18 @@ export function Sidebar({
   const role = useBooker((s) => s.role);
   const setRole = useBooker((s) => s.setRole);
   const navigate = useNavigate();
-
-  const unread = useBooker((s) =>
-    s.role === "client"
-      ? s.messages.filter((m) => m.from === "pro").length
-      : s.proMessages.filter((m) => m.from === "client").length,
-  );
-
-  const inboxCount = useBooker(
-    (s) => s.proInbox.filter((r) => r.status === "pending").length,
-  );
+  const fetchProBookings = useServerFn(listProBookings);
 
   const isClient = role === "client";
+  const { data: proBookings = [] } = useQuery({
+    queryKey: ["bookings", "pro", "sidebar"],
+    queryFn: () => fetchProBookings(),
+    enabled: !isClient,
+  });
+  const unread = 0;
+  const inboxCount = (proBookings as Array<{ status: string }>).filter(
+    (booking) => booking.status === "pending",
+  ).length;
   const nav = isClient ? clientNav : proNav;
   const showLabels = !collapsed || isHovered;
 
