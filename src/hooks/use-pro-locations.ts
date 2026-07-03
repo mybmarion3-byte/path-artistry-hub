@@ -31,7 +31,7 @@ export function useProLocations(proId?: string | null) {
 
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("pro_locations")
       .select("*")
       .eq("pro_id", proId)
@@ -59,7 +59,7 @@ export function useProLocations(proId?: string | null) {
       throw new Error("Fiche professionnelle introuvable.");
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("pro_locations")
       .insert({
         pro_id: proId,
@@ -75,7 +75,7 @@ export function useProLocations(proId?: string | null) {
     id: string,
     values: Partial<ProLocation>
   ) {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("pro_locations")
       .update(values)
       .eq("id", id);
@@ -86,7 +86,7 @@ export function useProLocations(proId?: string | null) {
   }
 
   async function deleteLocation(id: string) {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("pro_locations")
       .update({
         active: false,

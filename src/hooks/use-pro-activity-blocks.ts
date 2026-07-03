@@ -70,7 +70,7 @@ export function useProActivityBlocks(proId: string | null | undefined) {
     setLoading(true);
     setError(null);
 
-    const { data, error: loadError } = await supabase
+    const { data, error: loadError } = await (supabase as any)
       .from("pro_activity_blocks")
       .select("*")
       .eq("pro_id", proId)
@@ -101,7 +101,7 @@ export function useProActivityBlocks(proId: string | null | undefined) {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
+    const { error: createError } = await (supabase as any)
       .from("pro_activity_blocks")
       .insert({
         pro_id: proId,
@@ -132,7 +132,7 @@ export function useProActivityBlocks(proId: string | null | undefined) {
     setSaving(true);
     setError(null);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from("pro_activity_blocks")
       .update({
         location_id: draft.locationId,
@@ -162,7 +162,7 @@ export function useProActivityBlocks(proId: string | null | undefined) {
     setSaving(true);
     setError(null);
 
-    const { error: disableError } = await supabase
+    const { error: disableError } = await (supabase as any)
       .from("pro_activity_blocks")
       .update({ active: false })
       .eq("id", id)
