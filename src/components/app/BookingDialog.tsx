@@ -285,7 +285,12 @@ export function BookingDialog({
       return;
     }
 
-    const startAt = new Date(slot.iso).toISOString();
+    const slotDate = new Date(slot.iso);
+    // Si le créneau proposé est déjà passé (mock/démo), on décale au prochain jour à la même heure
+    while (slotDate.getTime() < Date.now() + 60_000) {
+      slotDate.setDate(slotDate.getDate() + 1);
+    }
+    const startAt = slotDate.toISOString();
 
     const addressText =
       mode === "home" ? finalAddress : mode === "studio" ? selectedBusiness?.address : undefined;
