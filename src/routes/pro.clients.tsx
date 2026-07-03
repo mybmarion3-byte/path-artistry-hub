@@ -48,7 +48,7 @@ function Page() {
   const clients = useMemo(() => {
     const byClient = new Map<string, ClientSummary & { lastTime: number }>();
 
-    for (const booking of bookings as BookingRow[]) {
+    for (const booking of bookings as unknown as BookingRow[]) {
       if (booking.status === "cancelled") continue;
 
       const start = new Date(booking.start_at);

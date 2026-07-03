@@ -100,7 +100,7 @@ function ProDashboard() {
       toast.error(error instanceof Error ? error.message : "Impossible de mettre à jour la demande"),
   });
 
-  const rows = bookings as BookingRow[];
+  const rows = bookings as unknown as BookingRow[];
   const now = new Date();
   const todayBookings = rows
     .filter((booking) => isSameDay(new Date(booking.start_at), now))

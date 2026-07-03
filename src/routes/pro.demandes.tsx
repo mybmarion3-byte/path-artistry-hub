@@ -67,7 +67,7 @@ function Page() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "Impossible de mettre à jour la demande"),
   });
 
-  const rows = bookings as BookingRow[];
+  const rows = bookings as unknown as BookingRow[];
   const filtered = useMemo(
     () => rows.filter((booking) => Number(booking.price) >= filter.minBudget),
     [filter.minBudget, rows],
