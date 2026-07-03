@@ -139,7 +139,7 @@ export const listProConversations = createServerFn({ method: "GET" })
 
 export const sendConversationMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data) => sendMessageSchema.parse(data))
+  .inputValidator((data) => sendMessageSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")

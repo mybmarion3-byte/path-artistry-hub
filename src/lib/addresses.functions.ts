@@ -23,7 +23,7 @@ export const listMyAddresses = createServerFn({ method: "GET" })
 
 export const createAddress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => addressInput.parse(d))
+  .inputValidator((d) => addressInput.parse(d))
   .handler(async ({ data, context }) => {
     if (data.is_primary) {
       await context.supabase
@@ -42,7 +42,7 @@ export const createAddress = createServerFn({ method: "POST" })
 
 export const deleteAddress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("client_addresses")
@@ -54,7 +54,7 @@ export const deleteAddress = createServerFn({ method: "POST" })
 
 export const setPrimaryAddress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await context.supabase
       .from("client_addresses")
