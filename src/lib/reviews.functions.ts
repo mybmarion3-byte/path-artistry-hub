@@ -52,7 +52,7 @@ export const listReviewableBookings = createServerFn({ method: "GET" })
 
 export const createReview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data) => createReviewSchema.parse(data))
+  .inputValidator((data) => createReviewSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { data: booking, error: bookingError } = await context.supabase
       .from("bookings")
