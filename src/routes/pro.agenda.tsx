@@ -66,7 +66,7 @@ function Page() {
   });
 
   const slots = useMemo(() => {
-    return (bookings as BookingRow[])
+    return (bookings as unknown as BookingRow[])
       .filter((booking) => booking.status === "confirmed" || booking.status === "completed")
       .map((booking) => {
         const start = new Date(booking.start_at);

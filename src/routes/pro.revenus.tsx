@@ -76,7 +76,7 @@ function Page() {
   });
 
   const revenueBookings = useMemo(() => {
-    const rows = bookings as BookingRow[];
+    const rows = bookings as unknown as BookingRow[];
 
     return rows.filter((booking) =>
       REVENUE_STATUSES.includes(booking.status as (typeof REVENUE_STATUSES)[number]),
