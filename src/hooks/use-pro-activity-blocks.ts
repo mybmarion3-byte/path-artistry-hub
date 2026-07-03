@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 
-type ActivityBlockRow =
-  Database["public"]["Tables"]["pro_activity_blocks"]["Row"];
+type ActivityBlockRow = {
+  id: string;
+  pro_id: string;
+  location_id: string | null;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  label: string | null;
+  active: boolean;
+};
+
 
 export type ActivityBlock = {
   id: string;
