@@ -26,36 +26,40 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+const serverEnv = typeof process !== 'undefined' ? process.env : {};
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || serverEnv.SUPABASE_URL;
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  serverEnv.SUPABASE_ANON_KEY ||
+  serverEnv.SUPABASE_PUBLISHABLE_KEY;
+
+/**
+ * False when the Lovable/Vercel preview has lost its injected Supabase variables.
+ * The public mock experience must remain renderable in that situation instead of
+ * crashing the whole React tree.
+ */
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_SUPABASE_ANON_KEY ||
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY;
-
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_ANON_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+  if (!isSupabaseConfigured) {
+    console.warn(
+      '[Supabase] Environment variables are missing. Booker is running in safe mock mode until Supabase is reconnected.',
+    );
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  const resolvedUrl = supabaseUrl || 'https://placeholder.supabase.co';
+  const resolvedKey = supabasePublishableKey || 'placeholder-anon-key';
+
+  return createClient<Database>(resolvedUrl, resolvedKey, {
     global: {
-      fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
+      fetch: createSupabaseFetch(resolvedKey),
     },
     auth: {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
-      persistSession: true,
-      autoRefreshToken: true,
-    }
+      persistSession: isSupabaseConfigured,
+      autoRefreshToken: isSupabaseConfigured,
+    },
   });
 }
 
