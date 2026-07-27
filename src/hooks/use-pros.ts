@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { PROS as MOCK_PROS, type Pro, type Mode } from "@/lib/booker-store";
 import camilleImg from "@/assets/pro-camille.jpg";
 import thomasImg from "@/assets/pro-thomas.jpg";
@@ -82,26 +82,42 @@ function rowToPro(row: ProRow): Pro {
 
 export function usePros() {
   const [pros, setPros] = useState<Pro[]>(MOCK_PROS);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("pros")
-        .select("*, pro_services(*)")
-        .order("rating", { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-      const mapped = (data as unknown as ProRow[]).map(rowToPro);
-      if (mapped.length > 0) setPros(mapped);
+    if (!isSupabaseConfigured) {
       setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { data, error: queryError } = await supabase
+          .from("pros")
+          .select("*, pro_services(*)")
+          .order("rating", { ascending: false });
+
+        if (cancelled) return;
+        if (queryError) {
+          setError(queryError.message);
+          setLoading(false);
+          return;
+        }
+
+        const mapped = (data as unknown as ProRow[]).map(rowToPro);
+        if (mapped.length > 0) setPros(mapped);
+        setLoading(false);
+      } catch (cause) {
+        if (cancelled) return;
+        console.error("[Supabase] Unable to load professionals. Keeping mock data.", cause);
+        setError(cause instanceof Error ? cause.message : "Impossible de charger les professionnels.");
+        setLoading(false);
+      }
     })();
+
     return () => {
       cancelled = true;
     };
